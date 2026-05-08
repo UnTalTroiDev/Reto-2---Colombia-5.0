@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     "Métricas en vivo del dataset SECOP II (jbjy-vk9h): valor contratado, top entidades, top proveedores, distribución por departamento y sector.",
 };
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     "Busca y filtra entre 17,3M de documentos electrónicos publicados en SECOP II por extensión, entidad y nombre.",
 };
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 type DocRow = {
   id_documento?: string;

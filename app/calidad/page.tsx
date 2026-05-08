@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     "Análisis estadístico de calidad de datos sobre el dataset SECOP II — nulos, duplicados, placeholders y tipos inconsistentes.",
 };
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 const SAMPLE_SIZE = 5000;
 

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Explora 5,6M de contratos públicos de SECOP II con filtros por departamento, estado y búsqueda libre.",
 };
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 type ContractRow = {
   id_contrato?: string;

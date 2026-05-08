@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     "Análisis del dataset dmgg-8hin: 17,3M de archivos cargados a SECOP II desde 2025. Tamaño, extensiones, top entidades y timeline de cargas.",
 };
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 export default async function DocumentosPage() {
   const [
