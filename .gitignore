@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+dist
+.env*
+!.env.example
+.DS_Store
+*.log
+.vercel
+
+# Local tooling (Claude Code skills, autoskills install)
+.claude/
+.agents/
+
+# Temp analysis output (regenerated via `node analisis.mjs`)
+analisis-resultado.json

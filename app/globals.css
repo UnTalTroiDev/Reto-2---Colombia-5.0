@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme {
+  /* Editorial / data-journalism palette: deep navy + warm cream + terracotta accent. */
+  --color-bg: #0b1220;
+  --color-bg-2: #0f172a;
+  --color-surface: #131b2c;
+  --color-surface-2: #1a2236;
+  --color-border: #243049;
+  --color-border-strong: #2e3a55;
+  --color-fg: #f5efe2;
+  --color-fg-2: #d8d1c0;
+  --color-muted: #8a8d9e;
+  --color-muted-2: #6b6e80;
+
+  /* Single warm accent — terracotta, evokes editorial print + government archive */
+  --color-accent: #e0623a;
+  --color-accent-soft: #c14e2c;
+  --color-accent-2: #d4a64a; /* gold for secondary highlights */
+
+  /* Semantic — muted, editorial, not neon */
+  --color-success: #6ba368;
+  --color-warn: #d4a64a;
+  --color-danger: #c75450;
+
+  /* Type scales (editorial proportions) */
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-display), "Times New Roman", ui-serif, Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", "SF Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle grain — gives editorial print texture (skill: "noise textures") */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1, 0 0 0 0 1, 0 0 0 0 1, 0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+/* Numbers in tabular form by default for data-dense UIs */
+.num,
+table td,
+table th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editorial helpers */
+.serif {
+  font-family: var(--font-serif);
+  font-variation-settings: "opsz" 144, "SOFT" 50;
+  letter-spacing: -0.02em;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--color-muted);
+}
+
+.rule {
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-border-strong) 16%,
+    var(--color-border-strong) 84%,
+    transparent
+  );
+  height: 1px;
+  width: 100%;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a5273;
+}
+
+/* Focus ring — generous, accessible */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
