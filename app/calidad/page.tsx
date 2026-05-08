@@ -5,6 +5,7 @@ import { analyzeSample } from "@/lib/quality";
 import { sample } from "@/lib/socrata";
 import { formatNumber, formatPct } from "@/lib/utils";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Calidad de datos · SECOP Dashboard",
@@ -38,15 +39,6 @@ export default async function QualityPage({
 }) {
   const { size } = await searchParams;
   const sampleSize = Math.min(Math.max(Number(size) || SAMPLE_SIZE, 500), 50000);
-  const rows = await sample<Record<string, unknown>>(sampleSize);
-  const report = analyzeSample(rows);
-
-  const verdict =
-    report.qualityScore >= 75
-      ? { label: "Datos LIMPIOS", tone: "success" as const, msg: "El dataset está en buen estado general." }
-      : report.qualityScore >= 50
-        ? { label: "Datos MIXTOS", tone: "warn" as const, msg: "Hay problemas de calidad significativos en algunos campos." }
-        : { label: "Datos SUCIOS", tone: "danger" as const, msg: "Múltiples problemas de calidad detectados — requiere limpieza antes de análisis." };
 
   return (
     <div className="space-y-8">
@@ -62,6 +54,26 @@ export default async function QualityPage({
         </p>
       </div>
 
+      <Suspense key={sampleSize} fallback={<QualityReportSkeleton />}>
+        <QualityReport sampleSize={sampleSize} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function QualityReport({ sampleSize }: { sampleSize: number }) {
+  const rows = await sample<Record<string, unknown>>(sampleSize);
+  const report = analyzeSample(rows);
+
+  const verdict =
+    report.qualityScore >= 75
+      ? { label: "Datos LIMPIOS", tone: "success" as const, msg: "El dataset está en buen estado general." }
+      : report.qualityScore >= 50
+        ? { label: "Datos MIXTOS", tone: "warn" as const, msg: "Hay problemas de calidad significativos en algunos campos." }
+        : { label: "Datos SUCIOS", tone: "danger" as const, msg: "Múltiples problemas de calidad detectados — requiere limpieza antes de análisis." };
+
+  return (
+    <div className="space-y-8">
       <Card>
         <div className="flex items-center gap-8 flex-wrap">
           <QualityScore score={report.qualityScore} />
@@ -229,6 +241,21 @@ export default async function QualityPage({
           </div>
         </details>
       </Card>
+    </div>
+  );
+}
+
+function QualityReportSkeleton() {
+  return (
+    <div className="space-y-8 animate-pulse">
+      <div className="h-40 border border-[var(--color-border)] bg-[var(--color-surface)]" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-24 bg-[var(--color-surface)]" />
+        ))}
+      </div>
+      <div className="h-64 border border-[var(--color-border)] bg-[var(--color-surface)]" />
+      <div className="h-96 border border-[var(--color-border)] bg-[var(--color-surface)]" />
     </div>
   );
 }

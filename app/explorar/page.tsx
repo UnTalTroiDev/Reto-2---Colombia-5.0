@@ -3,6 +3,7 @@ import { soda, totalCount } from "@/lib/socrata";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Explorar contratos · SECOP Dashboard",
@@ -25,6 +26,8 @@ type ContractRow = {
   urlproceso?: { url?: string } | string;
 };
 
+type SP = { departamento?: string; estado?: string; q?: string; page?: string };
+
 function escapeSoql(s: string): string {
   return s.replace(/'/g, "''");
 }
@@ -42,26 +45,38 @@ function buildWhere(filters: { departamento?: string; estado?: string; q?: strin
   return parts.length ? parts.join(" AND ") : undefined;
 }
 
+const PAGE_SIZE = 50;
+
 export default async function ExplorarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ departamento?: string; estado?: string; q?: string; page?: string }>;
+  searchParams: Promise<SP>;
 }) {
   const sp = await searchParams;
-  const page = Math.max(1, Number(sp.page) || 1);
-  const pageSize = 50;
-  const where = buildWhere(sp);
+  const key = JSON.stringify(sp);
 
-  const [rows, count, departamentos, estados] = await Promise.all([
-    soda<ContractRow>({
-      $select:
-        "id_contrato, nombre_entidad, proveedor_adjudicado, departamento, estado_contrato, tipo_de_contrato, fecha_de_firma, valor_del_contrato, urlproceso",
-      $where: where,
-      $order: "fecha_de_firma DESC NULL LAST",
-      $limit: pageSize,
-      $offset: (page - 1) * pageSize,
-    }),
-    totalCount(where),
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Explorar contratos</h1>
+        <p className="text-[var(--color-muted)] mt-2">
+          Filtra y busca en 5,6M de contratos. Datos en vivo desde la API.
+        </p>
+      </div>
+
+      <Suspense key={`form-${key}`} fallback={<FilterFormSkeleton />}>
+        <FilterForm sp={sp} />
+      </Suspense>
+
+      <Suspense key={`results-${key}`} fallback={<ResultsSkeleton />}>
+        <Results sp={sp} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function FilterForm({ sp }: { sp: SP }) {
+  const [departamentos, estados] = await Promise.all([
     soda<{ departamento: string }>({
       $select: "departamento",
       $group: "departamento",
@@ -75,85 +90,102 @@ export default async function ExplorarPage({
       $limit: 30,
     }),
   ]);
+  return (
+    <Card>
+      <form className="grid grid-cols-1 md:grid-cols-4 gap-3" role="search" aria-label="Filtros de contratos">
+        <label className="md:col-span-2 flex flex-col gap-1">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Buscar</span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={sp.q ?? ""}
+            placeholder="Entidad, proveedor o descripción…"
+            className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Departamento</span>
+          <select
+            name="departamento"
+            defaultValue={sp.departamento ?? ""}
+            className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          >
+            <option value="">Todos los departamentos</option>
+            {departamentos
+              .filter((d) => d.departamento)
+              .map((d) => (
+                <option key={d.departamento} value={d.departamento}>
+                  {d.departamento}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Estado</span>
+          <select
+            name="estado"
+            defaultValue={sp.estado ?? ""}
+            className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          >
+            <option value="">Todos los estados</option>
+            {estados
+              .filter((e) => e.estado_contrato)
+              .map((e) => (
+                <option key={e.estado_contrato} value={e.estado_contrato}>
+                  {e.estado_contrato}
+                </option>
+              ))}
+          </select>
+        </label>
+        <div className="md:col-span-4 flex gap-2">
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90"
+          >
+            Aplicar filtros
+          </button>
+          <Link
+            href="/explorar"
+            className="px-4 py-2 rounded-lg ring-1 ring-[var(--color-border)] text-sm hover:bg-[var(--color-surface-2)]"
+          >
+            Limpiar
+          </Link>
+        </div>
+      </form>
+    </Card>
+  );
+}
 
-  const totalPages = Math.min(200, Math.ceil(count / pageSize));
+function FilterFormSkeleton() {
+  return (
+    <div className="h-44 border border-[var(--color-border)] bg-[var(--color-surface)] animate-pulse" />
+  );
+}
+
+async function Results({ sp }: { sp: SP }) {
+  const page = Math.max(1, Number(sp.page) || 1);
+  const where = buildWhere(sp);
+
+  const [rows, count] = await Promise.all([
+    soda<ContractRow>({
+      $select:
+        "id_contrato, nombre_entidad, proveedor_adjudicado, departamento, estado_contrato, tipo_de_contrato, fecha_de_firma, valor_del_contrato, urlproceso",
+      $where: where,
+      $order: "fecha_de_firma DESC NULL LAST",
+      $limit: PAGE_SIZE,
+      $offset: (page - 1) * PAGE_SIZE,
+    }),
+    totalCount(where),
+  ]);
+
+  const totalPages = Math.min(200, Math.ceil(count / PAGE_SIZE));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Explorar contratos</h1>
-        <p className="text-[var(--color-muted)] mt-2">
-          Filtra y busca en {formatNumber(count)} contratos. Datos en vivo desde la API.
-        </p>
-      </div>
-
-      <Card>
-        <form className="grid grid-cols-1 md:grid-cols-4 gap-3" role="search" aria-label="Filtros de contratos">
-          <label className="md:col-span-2 flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Buscar</span>
-            <input
-              type="search"
-              name="q"
-              defaultValue={sp.q ?? ""}
-              placeholder="Entidad, proveedor o descripción…"
-              className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Departamento</span>
-            <select
-              name="departamento"
-              defaultValue={sp.departamento ?? ""}
-              className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            >
-              <option value="">Todos los departamentos</option>
-              {departamentos
-                .filter((d) => d.departamento)
-                .map((d) => (
-                  <option key={d.departamento} value={d.departamento}>
-                    {d.departamento}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Estado</span>
-            <select
-              name="estado"
-              defaultValue={sp.estado ?? ""}
-              className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            >
-              <option value="">Todos los estados</option>
-              {estados
-                .filter((e) => e.estado_contrato)
-                .map((e) => (
-                  <option key={e.estado_contrato} value={e.estado_contrato}>
-                    {e.estado_contrato}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <div className="md:col-span-4 flex gap-2">
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90"
-            >
-              Aplicar filtros
-            </button>
-            <Link
-              href="/explorar"
-              className="px-4 py-2 rounded-lg ring-1 ring-[var(--color-border)] text-sm hover:bg-[var(--color-surface-2)]"
-            >
-              Limpiar
-            </Link>
-            <div className="ml-auto text-xs text-[var(--color-muted)] self-center">
-              Página {page} de {formatNumber(totalPages)}
-            </div>
-          </div>
-        </form>
-      </Card>
-
-      <Card title={`Resultados (${formatNumber(count)} contratos)`} subtitle={`Mostrando ${rows.length} en esta página`}>
+    <>
+      <Card
+        title={`Resultados (${formatNumber(count)} contratos)`}
+        subtitle={`Mostrando ${rows.length} · página ${page} de ${formatNumber(totalPages)}`}
+      >
         <div className="overflow-x-auto -mx-5">
           <table className="w-full text-sm">
             <thead>
@@ -243,6 +275,17 @@ export default async function ExplorarPage({
           </Link>
         )}
       </div>
-    </div>
+    </>
+  );
+}
+
+function ResultsSkeleton() {
+  return (
+    <>
+      <div className="h-[480px] border border-[var(--color-border)] bg-[var(--color-surface)] animate-pulse" />
+      <div className="flex items-center justify-center gap-2">
+        <div className="h-8 w-24 bg-[var(--color-surface)] animate-pulse" />
+      </div>
+    </>
   );
 }

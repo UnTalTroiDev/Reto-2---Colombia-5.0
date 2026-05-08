@@ -72,8 +72,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   </span>
                   <span className="kicker">Datos abiertos · Colombia</span>
                 </Link>
-                <div className="ml-auto kicker hidden md:block">
-                  Edición {new Date().toISOString().slice(0, 10)} · API SODA v2
+                <div className="ml-auto flex items-center gap-4">
+                  <span className="kicker hidden md:block">
+                    Edición {new Date().toISOString().slice(0, 10)}
+                  </span>
+                  <Link
+                    href="/api-docs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] text-[12px] font-medium hover:bg-[var(--color-accent)]/20 transition whitespace-nowrap"
+                    aria-label="Ver documentación de la API pública"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                    API pública
+                  </Link>
                 </div>
               </div>
               <nav
@@ -135,8 +158,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="kicker">API pública</div>
                 <ul className="mt-2 space-y-1 text-[13px]">
                   <li>
+                    <Link href="/api-docs" className="text-[var(--color-fg-2)] hover:text-[var(--color-accent)]">
+                      /api-docs · Documentación
+                    </Link>
+                  </li>
+                  <li>
                     <Link href="/api" className="text-[var(--color-fg-2)] hover:text-[var(--color-accent)]">
-                      /api · Documentación
+                      /api · Índice JSON
                     </Link>
                   </li>
                   <li>

@@ -4,6 +4,7 @@ import { sodaDocs, totalDocs } from "@/lib/socrata-docs";
 import { formatNumber } from "@/lib/utils";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Explorar documentos · SECOP Dashboard",
@@ -26,6 +27,10 @@ type DocRow = {
   url_descarga_documento?: { url?: string } | string;
 };
 
+type SP = { ext?: string; entidad?: string; q?: string; page?: string };
+
+const PAGE_SIZE = 50;
+
 function escapeSoql(s: string): string {
   return s.replace(/'/g, "''");
 }
@@ -46,23 +51,36 @@ function buildWhere(filters: { ext?: string; entidad?: string; q?: string }): st
 export default async function ExplorarDocsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ext?: string; entidad?: string; q?: string; page?: string }>;
+  searchParams: Promise<SP>;
 }) {
   const sp = await searchParams;
-  const page = Math.max(1, Number(sp.page) || 1);
-  const pageSize = 50;
-  const where = buildWhere(sp);
+  const key = JSON.stringify(sp);
 
-  const [rows, count, exts, entidades] = await Promise.all([
-    sodaDocs<DocRow>({
-      $select:
-        "id_documento, proceso, nombre_archivo, extensi_n, tamanno_archivo, fecha_carga, entidad, nit_entidad, url_descarga_documento",
-      $where: where,
-      $order: "fecha_carga DESC NULL LAST",
-      $limit: pageSize,
-      $offset: (page - 1) * pageSize,
-    }),
-    totalDocs(where),
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="text-xs uppercase tracking-wider text-[var(--color-accent-2)] font-medium">
+          Dataset · dmgg-8hin
+        </div>
+        <h1 className="text-3xl font-semibold tracking-tight mt-1">Explorar documentos</h1>
+        <p className="text-[var(--color-muted)] mt-2">
+          Filtra y busca en 17,3M de documentos. Datos en vivo desde la API.
+        </p>
+      </div>
+
+      <Suspense key={`form-${key}`} fallback={<FormSkeleton />}>
+        <FilterForm sp={sp} />
+      </Suspense>
+
+      <Suspense key={`results-${key}`} fallback={<ResultsSkeleton />}>
+        <Results sp={sp} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function FilterForm({ sp }: { sp: SP }) {
+  const [exts, entidades] = await Promise.all([
     sodaDocs<{ extensi_n: string; n: string }>({
       $select: "extensi_n, count(*) AS n",
       $group: "extensi_n",
@@ -76,90 +94,101 @@ export default async function ExplorarDocsPage({
       $limit: 100,
     }),
   ]);
+  return (
+    <Card>
+      <form className="grid grid-cols-1 md:grid-cols-4 gap-3" role="search" aria-label="Filtros de documentos">
+        <label className="md:col-span-2 flex flex-col gap-1">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Buscar</span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={sp.q ?? ""}
+            placeholder="Nombre, descripción o entidad…"
+            className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Extensión</span>
+          <select
+            name="ext"
+            defaultValue={sp.ext ?? ""}
+            className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          >
+            <option value="">Todas las extensiones</option>
+            {exts
+              .filter((e) => e.extensi_n)
+              .map((e) => (
+                <option key={e.extensi_n} value={e.extensi_n}>
+                  {e.extensi_n} ({formatNumber(Number(e.n))})
+                </option>
+              ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Entidad</span>
+          <select
+            name="entidad"
+            defaultValue={sp.entidad ?? ""}
+            className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          >
+            <option value="">Top 100 entidades</option>
+            {entidades
+              .filter((e) => e.entidad)
+              .map((e) => (
+                <option key={e.entidad} value={e.entidad}>
+                  {e.entidad}
+                </option>
+              ))}
+          </select>
+        </label>
+        <div className="md:col-span-4 flex gap-2">
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90"
+          >
+            Aplicar filtros
+          </button>
+          <Link
+            href="/documentos/explorar"
+            className="px-4 py-2 rounded-lg ring-1 ring-[var(--color-border)] text-sm hover:bg-[var(--color-surface-2)]"
+          >
+            Limpiar
+          </Link>
+        </div>
+      </form>
+    </Card>
+  );
+}
 
-  const totalPages = Math.min(200, Math.ceil(count / pageSize));
+function FormSkeleton() {
+  return (
+    <div className="h-44 border border-[var(--color-border)] bg-[var(--color-surface)] animate-pulse" />
+  );
+}
+
+async function Results({ sp }: { sp: SP }) {
+  const page = Math.max(1, Number(sp.page) || 1);
+  const where = buildWhere(sp);
+
+  const [rows, count] = await Promise.all([
+    sodaDocs<DocRow>({
+      $select:
+        "id_documento, proceso, nombre_archivo, extensi_n, tamanno_archivo, fecha_carga, entidad, nit_entidad, url_descarga_documento",
+      $where: where,
+      $order: "fecha_carga DESC NULL LAST",
+      $limit: PAGE_SIZE,
+      $offset: (page - 1) * PAGE_SIZE,
+    }),
+    totalDocs(where),
+  ]);
+
+  const totalPages = Math.min(200, Math.ceil(count / PAGE_SIZE));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="text-xs uppercase tracking-wider text-[var(--color-accent-2)] font-medium">
-          Dataset · dmgg-8hin
-        </div>
-        <h1 className="text-3xl font-semibold tracking-tight mt-1">Explorar documentos</h1>
-        <p className="text-[var(--color-muted)] mt-2">
-          Filtra y busca en {formatNumber(count)} documentos. Datos en vivo desde la API.
-        </p>
-      </div>
-
-      <Card>
-        <form className="grid grid-cols-1 md:grid-cols-4 gap-3" role="search" aria-label="Filtros de documentos">
-          <label className="md:col-span-2 flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Buscar</span>
-            <input
-              type="search"
-              name="q"
-              defaultValue={sp.q ?? ""}
-              placeholder="Nombre, descripción o entidad…"
-              className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Extensión</span>
-            <select
-              name="ext"
-              defaultValue={sp.ext ?? ""}
-              className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            >
-              <option value="">Todas las extensiones</option>
-              {exts
-                .filter((e) => e.extensi_n)
-                .map((e) => (
-                  <option key={e.extensi_n} value={e.extensi_n}>
-                    {e.extensi_n} ({formatNumber(Number(e.n))})
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Entidad</span>
-            <select
-              name="entidad"
-              defaultValue={sp.entidad ?? ""}
-              className="px-3 py-2 rounded-lg bg-[var(--color-surface-2)] ring-1 ring-[var(--color-border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            >
-              <option value="">Top 100 entidades</option>
-              {entidades
-                .filter((e) => e.entidad)
-                .map((e) => (
-                  <option key={e.entidad} value={e.entidad}>
-                    {e.entidad}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <div className="md:col-span-4 flex gap-2">
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90"
-            >
-              Aplicar filtros
-            </button>
-            <Link
-              href="/documentos/explorar"
-              className="px-4 py-2 rounded-lg ring-1 ring-[var(--color-border)] text-sm hover:bg-[var(--color-surface-2)]"
-            >
-              Limpiar
-            </Link>
-            <div className="ml-auto text-xs text-[var(--color-muted)] self-center">
-              Página {page} de {formatNumber(totalPages)}
-            </div>
-          </div>
-        </form>
-      </Card>
-
+    <>
       <Card
         title={`Resultados (${formatNumber(count)} documentos)`}
-        subtitle={`Mostrando ${rows.length} en esta página`}
+        subtitle={`Mostrando ${rows.length} · página ${page} de ${formatNumber(totalPages)}`}
       >
         <div className="overflow-x-auto -mx-5">
           <table className="w-full text-sm">
@@ -248,6 +277,17 @@ export default async function ExplorarDocsPage({
           </Link>
         )}
       </div>
-    </div>
+    </>
+  );
+}
+
+function ResultsSkeleton() {
+  return (
+    <>
+      <div className="h-[480px] border border-[var(--color-border)] bg-[var(--color-surface)] animate-pulse" />
+      <div className="flex items-center justify-center gap-2">
+        <div className="h-8 w-24 bg-[var(--color-surface)] animate-pulse" />
+      </div>
+    </>
   );
 }
