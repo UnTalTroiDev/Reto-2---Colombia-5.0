@@ -97,21 +97,28 @@ export default function HomePage() {
       </section>
 
       <section className="space-y-4">
-        <div className="kicker">III · Anatomía del contrato</div>
+        <div className="kicker">III · Demos en vivo · escenarios canónicos</div>
+        <Suspense fallback={<DemoSkeleton />}>
+          <DemoPresets />
+        </Suspense>
+      </section>
+
+      <section className="space-y-4">
+        <div className="kicker">IV · Anatomía del contrato</div>
         <Suspense fallback={<ThreeCardsSkeleton />}>
           <AnatomySection />
         </Suspense>
       </section>
 
       <section className="space-y-4">
-        <div className="kicker">IV · Quién recibe el dinero</div>
+        <div className="kicker">V · Quién recibe el dinero</div>
         <Suspense fallback={<TwoTallCardsSkeleton />}>
           <TopRecipientsSection />
         </Suspense>
       </section>
 
       <section className="space-y-4">
-        <div className="kicker">V · Geografía y sector</div>
+        <div className="kicker">VI · Geografía y sector</div>
         <Suspense fallback={<TwoTallCardsSkeleton />}>
           <GeoSectorSection />
         </Suspense>
@@ -121,7 +128,7 @@ export default function HomePage() {
 
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center py-4">
         <div className="lg:col-span-8">
-          <div className="kicker">VI · Cierre</div>
+          <div className="kicker">VII · Cierre</div>
           <h3 className="serif text-3xl font-semibold leading-snug mt-2 max-w-2xl">
             Pertinencia territorial: Colombia entera.
           </h3>
@@ -393,6 +400,150 @@ async function GeoSectorSection() {
       <Card kicker="Sector" title="Por industria" subtitle="Top 10">
         <BarRanking data={bySector} format="number" color="#a16ba1" height={420} />
       </Card>
+    </div>
+  );
+}
+
+type DemoCase = {
+  slug: string;
+  kicker: string;
+  title: string;
+  hint: string;
+  where: string;
+  order: string;
+};
+
+const DEMO_CASES: DemoCase[] = [
+  {
+    slug: "directa",
+    kicker: "Caso A",
+    title: "Megacontrato directo",
+    hint: "Mayor valor adjudicado por contratación directa. Disparador clásico de bandera 02.",
+    where:
+      "valor_del_contrato > 500000000 AND upper(modalidad_de_contratacion) like upper('%directa%')",
+    order: "valor_del_contrato DESC NULL LAST",
+  },
+  {
+    slug: "regimen-especial",
+    kicker: "Caso B",
+    title: "Régimen especial atípico",
+    hint: "Mayor valor bajo régimen especial — modalidad que recorta competencia abierta.",
+    where:
+      "valor_del_contrato > 300000000 AND upper(modalidad_de_contratacion) like upper('%régimen especial%')",
+    order: "valor_del_contrato DESC NULL LAST",
+  },
+  {
+    slug: "otrosies",
+    kicker: "Caso C",
+    title: "Plazo extendido por otrosíes",
+    hint: "Contrato con mayor número de días adicionados — bandera 01 (implementación).",
+    where:
+      "valor_del_contrato > 100000000 AND dias_adicionados > 200",
+    order: "dias_adicionados DESC NULL LAST",
+  },
+];
+
+async function DemoPresets() {
+  const results = await Promise.all(
+    DEMO_CASES.map((c) =>
+      soda<ContractRow>(
+        {
+          $select:
+            "id_contrato, nombre_entidad, proveedor_adjudicado, departamento, modalidad_de_contratacion, valor_del_contrato, dias_adicionados",
+          $where: c.where,
+          $order: c.order,
+          $limit: 1,
+        },
+        { revalidate: 1800 },
+      ).then((rows) => ({ caso: c, row: rows[0] ?? null })),
+    ),
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <p className="text-[13px] text-[var(--color-fg-2)] max-w-2xl leading-relaxed">
+          Tres expedientes preseleccionados que ilustran las modalidades más recurrentes en alertas
+          de SECOP II. Click para ver al agente trabajar en vivo, o pida un caso aleatorio.
+        </p>
+        <Link
+          href="/auditor/random"
+          prefetch={false}
+          className="inline-flex items-center gap-2 px-3 py-2 border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)] text-[12px] font-medium hover:bg-[var(--color-accent)]/20 transition whitespace-nowrap"
+        >
+          <span className="font-mono">⚂</span> Auditar uno aleatorio →
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--color-border)]">
+        {results.map(({ caso, row }) => (
+          <DemoCard key={caso.slug} caso={caso} row={row} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DemoCard({ caso, row }: { caso: DemoCase; row: ContractRow | null }) {
+  if (!row || !row.id_contrato) {
+    return (
+      <article className="bg-[var(--color-surface)] p-5">
+        <div className="kicker text-[var(--color-accent)] mb-2">{caso.kicker}</div>
+        <h3 className="serif text-[18px] font-semibold leading-tight">{caso.title}</h3>
+        <p className="text-[12px] text-[var(--color-muted)] mt-2 leading-relaxed">
+          Sin datos disponibles ahora mismo. Probá con un caso aleatorio.
+        </p>
+      </article>
+    );
+  }
+  const dias = Number(row.dias_adicionados ?? 0);
+  return (
+    <Link
+      href={`/auditor/${encodeURIComponent(row.id_contrato)}`}
+      className="bg-[var(--color-surface)] p-5 block transition hover:bg-[var(--color-surface-2)]/60 hover:shadow-[inset_3px_0_0_var(--color-accent)] group"
+    >
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <span className="kicker text-[var(--color-accent)]">{caso.kicker}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)] group-hover:text-[var(--color-accent)] transition">
+          Auditar ↗
+        </span>
+      </div>
+      <h3 className="serif text-[20px] font-semibold leading-tight">{caso.title}</h3>
+      <p className="text-[11px] text-[var(--color-muted-2)] mt-1.5 leading-snug line-clamp-2">
+        {caso.hint}
+      </p>
+      <div className="rule mt-4 mb-3" />
+      <div className="text-[13px] font-medium leading-tight truncate" title={row.nombre_entidad ?? undefined}>
+        {row.nombre_entidad ?? "—"}
+      </div>
+      <div className="text-[11px] text-[var(--color-muted)] mt-1 truncate" title={row.proveedor_adjudicado ?? undefined}>
+        → {row.proveedor_adjudicado ?? "—"}
+      </div>
+      <div className="flex items-baseline justify-between gap-2 mt-3">
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+          {row.departamento ?? "—"}
+        </span>
+        <span className="font-mono text-[14px] font-medium tabular-nums text-[var(--color-accent-2)]">
+          {formatCurrency(row.valor_del_contrato)}
+        </span>
+      </div>
+      {caso.slug === "otrosies" && dias > 0 && (
+        <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-warn)]">
+          + {formatNumber(dias)} días adicionados
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function DemoSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--color-border)]">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-56 bg-[var(--color-surface)] animate-pulse"
+        />
+      ))}
     </div>
   );
 }
