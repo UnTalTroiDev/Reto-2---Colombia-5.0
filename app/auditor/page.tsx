@@ -1,4 +1,3 @@
-import { Card } from "@/components/Card";
 import { soda } from "@/lib/socrata";
 import { evaluateContract, type ContractRow } from "@/lib/risk-signals";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -34,35 +33,36 @@ export default async function AuditorPage({
   const key = JSON.stringify(sp);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end pt-2">
-        <div className="lg:col-span-8">
-          <div className="kicker mb-3">
-            Volumen 2 · Agente auditor · IA
-          </div>
-          <h1 className="serif text-[40px] md:text-[52px] leading-[1.05] font-semibold tracking-tight text-[var(--color-fg)]">
-            GobIA <span className="text-[var(--color-accent)]">Auditor</span> — un agente que lee SECOP II por ti.
+        <div className="lg:col-span-8 rise rise-1">
+          <div className="kicker mb-3">Volumen II · Expediente público · 2026</div>
+          <h1 className="serif text-[44px] md:text-[60px] leading-[0.98] font-semibold tracking-tighter text-[var(--color-fg)]">
+            Vigilancia activa de la <span className="text-[var(--color-accent)]">contratación</span> pública.
           </h1>
           <p className="text-[15px] text-[var(--color-fg-2)] mt-5 max-w-2xl leading-relaxed">
-            Combinamos un motor de{" "}
-            <em className="text-[var(--color-accent-2)] not-italic font-mono text-[13px]">
-              señales heurísticas determinísticas
-            </em>{" "}
-            (modalidad, concentración, valor atípico, plazos, transparencia) con un{" "}
-            <em className="text-[var(--color-accent-2)] not-italic font-mono text-[13px]">
-              LLM open-source
-            </em>{" "}
-            (Qwen 3 235B en Cerebras) que lee el objeto del contrato y aporta el análisis cualitativo
-            que las reglas no capturan. Cobertura nacional, datos vivos.
+            Cada fila de esta tabla es un <em className="not-italic font-semibold text-[var(--color-fg)]">expediente</em>{" "}
+            con un score de riesgo calculado por nuestro motor heurístico. Click en{" "}
+            <span className="font-mono text-[12px] tracking-wider text-[var(--color-accent)]">AUDITAR ↗</span>{" "}
+            para que el LLM genere el informe forense completo en vivo.
           </p>
         </div>
-        <div className="lg:col-span-4 space-y-3">
+        <div className="lg:col-span-4 rise rise-2">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] p-5">
-            <div className="kicker">Cómo funciona</div>
-            <ol className="mt-3 space-y-2 text-[13px] text-[var(--color-fg-2)] list-decimal pl-5">
-              <li>Filtramos los contratos de mayor riesgo potencial vía SODA.</li>
-              <li>Cada uno corre por el motor heurístico (score 0–100).</li>
-              <li>Click en uno: el LLM genera análisis + recomendación.</li>
+            <div className="kicker mb-3">Metodología</div>
+            <ol className="space-y-2 text-[13px] text-[var(--color-fg-2)] list-none">
+              <li className="flex gap-3">
+                <span className="font-mono text-[11px] text-[var(--color-accent)] tabular-nums tracking-widest">01</span>
+                <span>Filtramos en SODA por modalidad y valor.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono text-[11px] text-[var(--color-accent)] tabular-nums tracking-widest">02</span>
+                <span>Motor heurístico puntúa cada candidato (0–100).</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-mono text-[11px] text-[var(--color-accent)] tabular-nums tracking-widest">03</span>
+                <span>LLM open-source emite informe + recomendación.</span>
+              </li>
             </ol>
           </div>
         </div>
@@ -98,20 +98,25 @@ async function FilterForm({ sp }: { sp: SP }) {
   ]);
 
   return (
-    <Card kicker="Filtros" title="Buscar contratos de mayor riesgo">
+    <section className="rise rise-3">
+      <div className="kicker mb-3 flex items-baseline gap-3">
+        <span>Filtrar expediente</span>
+        <span className="text-[var(--color-border-strong)] font-mono">·</span>
+        <span className="text-[var(--color-muted-2)]">Departamento / Sector / Modalidad / Valor mínimo</span>
+      </div>
       <form
-        className="grid grid-cols-1 md:grid-cols-5 gap-3"
+        className="grid grid-cols-1 md:grid-cols-5 gap-3 border-t border-b-[3px] border-[var(--color-border-strong)] py-4"
         role="search"
         aria-label="Filtros del leaderboard de riesgo"
       >
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
             Departamento
           </span>
           <select
             name="departamento"
             defaultValue={sp.departamento ?? ""}
-            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors"
           >
             <option value="">Toda Colombia</option>
             {departamentos
@@ -125,11 +130,13 @@ async function FilterForm({ sp }: { sp: SP }) {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">Sector</span>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            Sector
+          </span>
           <select
             name="sector"
             defaultValue={sp.sector ?? ""}
-            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors"
           >
             <option value="">Todos los sectores</option>
             {sectores
@@ -143,13 +150,13 @@ async function FilterForm({ sp }: { sp: SP }) {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
             Modalidad
           </span>
           <select
             name="modalidad"
             defaultValue={sp.modalidad ?? ""}
-            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors"
           >
             <option value="">Todas</option>
             <option value="directa">Contratación directa</option>
@@ -161,7 +168,7 @@ async function FilterForm({ sp }: { sp: SP }) {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wider text-[var(--color-muted)]">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
             Valor mínimo (COP)
           </span>
           <input
@@ -170,14 +177,14 @@ async function FilterForm({ sp }: { sp: SP }) {
             defaultValue={sp.valor_min ?? "100000000"}
             min={0}
             step={50000000}
-            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)] font-mono"
+            className="px-3 py-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-sm focus:outline-none focus:border-[var(--color-accent)] font-mono transition-colors"
           />
         </label>
 
         <div className="flex items-end gap-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-[var(--color-accent)] text-[var(--color-bg)] text-sm font-medium hover:bg-[var(--color-accent-soft)] transition"
+            className="flex-1 px-4 py-2 bg-[var(--color-accent)] text-[var(--color-bg)] text-sm font-semibold hover:bg-[var(--color-accent-soft)] transition tracking-tight"
           >
             Auditar
           </button>
@@ -189,7 +196,7 @@ async function FilterForm({ sp }: { sp: SP }) {
           </Link>
         </div>
       </form>
-    </Card>
+    </section>
   );
 }
 
@@ -229,74 +236,88 @@ async function Leaderboard({ sp }: { sp: SP }) {
     .slice(0, 25);
 
   return (
-    <Card
-      kicker={`Top ${scored.length} de ${rows.length} candidatos`}
-      title="Leaderboard nacional de riesgo"
-      subtitle="Score determinístico (heurísticas) — click en un contrato para auditoría AI individual."
-    >
-      <div className="overflow-x-auto -mx-6">
+    <section className="rise rise-4">
+      <header className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
+        <div>
+          <div className="kicker">Leaderboard nacional · Top {scored.length}</div>
+          <h2 className="serif text-2xl md:text-3xl font-semibold mt-1 tracking-tight">
+            Contratos con mayor score de riesgo
+          </h2>
+        </div>
+        <div className="font-mono text-[11px] uppercase tracking-widest text-[var(--color-muted)]">
+          {formatNumber(rows.length)} candidatos analizados
+        </div>
+      </header>
+
+      <div className="overflow-x-auto bg-[var(--color-surface)] border border-[var(--color-border)]">
         <table className="w-full text-sm">
-          <thead>
-            <tr className="text-[11px] uppercase tracking-wider text-[var(--color-muted)] border-b border-[var(--color-border)]">
-              <th className="text-left py-3 px-6 font-medium w-16">Score</th>
+          <thead className="border-t border-b-[3px] border-[var(--color-border-strong)]">
+            <tr className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+              <th className="text-left py-3 pl-6 pr-2 font-medium w-10">№</th>
+              <th className="text-left py-3 px-2 font-medium w-20">Score</th>
               <th className="text-left py-3 px-2 font-medium">Entidad / Proveedor</th>
               <th className="text-left py-3 px-2 font-medium">Departamento</th>
               <th className="text-left py-3 px-2 font-medium">Modalidad</th>
               <th className="text-right py-3 px-2 font-medium">Valor</th>
-              <th className="text-left py-3 px-2 font-medium">Top señal</th>
-              <th className="text-right py-3 px-6 font-medium">Auditar</th>
+              <th className="text-left py-3 px-2 font-medium">Hallazgo principal</th>
+              <th className="text-right py-3 px-6 font-medium">Acción</th>
             </tr>
           </thead>
           <tbody>
             {scored.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-[var(--color-muted)]">
+                <td colSpan={8} className="py-12 text-center text-[var(--color-muted)]">
                   Sin candidatos para esos filtros.
                 </td>
               </tr>
             )}
-            {scored.map(({ row, assessment }) => (
+            {scored.map(({ row, assessment }, idx) => (
               <tr
                 key={row.id_contrato}
-                className="border-b border-[var(--color-border)]/50 hover:bg-[var(--color-surface-2)]/40"
+                className="border-b border-[var(--color-border)]/40 transition-all hover:bg-[var(--color-surface-2)]/40 hover:shadow-[inset_3px_0_0_var(--color-accent)]"
               >
-                <td className="py-3 px-6">
-                  <ScoreBadge score={assessment.score} level={assessment.level} />
+                <td className="py-4 pl-6 pr-2 font-mono text-[11px] text-[var(--color-muted)] tabular-nums tracking-widest align-top">
+                  {(idx + 1).toString().padStart(2, "0")}
                 </td>
-                <td className="py-3 px-2 max-w-[260px]">
-                  <div className="truncate font-medium" title={row.nombre_entidad ?? undefined}>
+                <td className="py-4 px-2 align-top">
+                  <ScoreSeal score={assessment.score} level={assessment.level} />
+                </td>
+                <td className="py-4 px-2 max-w-[260px] align-top">
+                  <div className="serif text-[15px] leading-tight font-medium" title={row.nombre_entidad ?? undefined}>
                     {row.nombre_entidad ?? "—"}
                   </div>
                   <div
-                    className="truncate text-[12px] text-[var(--color-muted)]"
+                    className="text-[12px] text-[var(--color-muted)] mt-1 truncate"
                     title={row.proveedor_adjudicado ?? undefined}
                   >
                     → {row.proveedor_adjudicado ?? "—"}
                   </div>
                 </td>
-                <td className="py-3 px-2 text-[12px] text-[var(--color-muted)]">
+                <td className="py-4 px-2 text-[12px] text-[var(--color-fg-2)] align-top">
                   {row.departamento ?? "—"}
                 </td>
-                <td className="py-3 px-2 text-[12px]">
+                <td className="py-4 px-2 text-[12px] align-top">
                   {row.modalidad_de_contratacion ?? "—"}
                 </td>
-                <td className="py-3 px-2 text-right tabular-nums font-mono text-[12px]">
+                <td className="py-4 px-2 text-right tabular-nums font-mono text-[12px] align-top">
                   {formatCurrency(row.valor_del_contrato)}
                 </td>
-                <td className="py-3 px-2 text-[12px] text-[var(--color-fg-2)] max-w-[260px] truncate">
-                  {assessment.signals[0]?.title ?? "—"}
+                <td className="py-4 px-2 text-[12px] text-[var(--color-fg-2)] max-w-[260px] align-top">
+                  <div className="truncate" title={assessment.signals[0]?.title}>
+                    {assessment.signals[0]?.title ?? "—"}
+                  </div>
                   {assessment.signals.length > 1 && (
-                    <span className="text-[var(--color-muted)] ml-1">
-                      +{assessment.signals.length - 1}
-                    </span>
+                    <div className="font-mono text-[10px] text-[var(--color-muted)] mt-0.5 tracking-wider">
+                      + {assessment.signals.length - 1} más
+                    </div>
                   )}
                 </td>
-                <td className="py-3 px-6 text-right">
+                <td className="py-4 px-6 text-right align-top">
                   <Link
                     href={`/auditor/${encodeURIComponent(row.id_contrato ?? "")}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-accent)]/10 text-[var(--color-accent)] border border-[var(--color-accent)]/30 text-[12px] font-medium hover:bg-[var(--color-accent)]/20 transition whitespace-nowrap"
+                    className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--color-accent)] hover:text-[var(--color-fg)] transition whitespace-nowrap border-b border-transparent hover:border-[var(--color-accent)] pb-0.5"
                   >
-                    Auditar →
+                    Auditar ↗
                   </Link>
                 </td>
               </tr>
@@ -304,42 +325,53 @@ async function Leaderboard({ sp }: { sp: SP }) {
           </tbody>
         </table>
       </div>
-      <div className="mt-4 flex items-center justify-between text-[12px] text-[var(--color-muted)]">
-        <div>
-          Total contratos analizados: <span className="font-mono">{formatNumber(rows.length)}</span>
-        </div>
-        <div className="flex items-center gap-3 font-mono text-[11px]">
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 bg-[var(--color-danger)]" /> crítico ≥70
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 bg-[var(--color-warn)]" /> alto 50–69
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 bg-[var(--color-accent)]" /> medio 30–49
-          </span>
-        </div>
-      </div>
-    </Card>
+
+      <footer className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-px bg-[var(--color-border)]">
+        <RiskScale label="Crítico" range="≥ 70" cls="bg-[var(--color-danger)]" />
+        <RiskScale label="Alto" range="50–69" cls="bg-[var(--color-warn)]" />
+        <RiskScale label="Medio" range="30–49" cls="bg-[var(--color-accent)]" />
+        <RiskScale label="Bajo" range="< 30" cls="bg-[var(--color-success)]/40" />
+      </footer>
+    </section>
   );
 }
 
-function ScoreBadge({ score, level }: { score: number; level: string }) {
-  const tone =
+function ScoreSeal({ score, level }: { score: number; level: string }) {
+  const borderTone =
     score >= 70
-      ? "bg-[var(--color-danger)] text-white"
+      ? "border-[var(--color-danger)]"
       : score >= 50
-        ? "bg-[var(--color-warn)] text-[var(--color-bg)]"
+        ? "border-[var(--color-warn)]"
         : score >= 30
-          ? "bg-[var(--color-accent)] text-[var(--color-bg)]"
-          : "bg-[var(--color-surface-2)] text-[var(--color-fg)]";
+          ? "border-[var(--color-accent)]"
+          : "border-[var(--color-border-strong)]";
+  const textTone =
+    score >= 70
+      ? "text-[var(--color-danger)]"
+      : score >= 50
+        ? "text-[var(--color-warn)]"
+        : score >= 30
+          ? "text-[var(--color-accent)]"
+          : "text-[var(--color-fg-2)]";
   return (
-    <div className="inline-flex flex-col items-start">
-      <div className={`px-2 py-1 font-mono text-[14px] font-medium tabular-nums ${tone}`}>
+    <div className={`inline-flex flex-col items-center border-2 ${borderTone} px-2.5 py-1.5 bg-[var(--color-surface)]`}>
+      <div className={`serif text-[26px] leading-none font-medium tabular-nums ${textTone}`}>
         {score}
       </div>
-      <div className="text-[10px] text-[var(--color-muted)] mt-1 uppercase tracking-wider">
+      <div className="font-mono text-[8px] uppercase tracking-[0.25em] mt-0.5 text-[var(--color-muted)]">
         {level}
+      </div>
+    </div>
+  );
+}
+
+function RiskScale({ label, range, cls }: { label: string; range: string; cls: string }) {
+  return (
+    <div className="bg-[var(--color-surface)] p-3 flex items-center gap-3">
+      <span className={`size-2.5 ${cls}`} aria-hidden />
+      <div className="flex flex-col">
+        <span className="text-[12px] font-medium uppercase tracking-wider">{label}</span>
+        <span className="font-mono text-[10px] text-[var(--color-muted)] tabular-nums">{range}</span>
       </div>
     </div>
   );

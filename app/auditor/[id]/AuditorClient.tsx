@@ -31,7 +31,7 @@ type LlmResult = {
   citasObjeto: string[];
 };
 
-export function AuditorClient({ id }: { id: string }) {
+export function AuditorClient({ id, today }: { id: string; today: string }) {
   const [heuristic, setHeuristic] = useState<Heuristica | null>(null);
   const [streamText, setStreamText] = useState("");
   const [llm, setLlm] = useState<LlmResult | null>(null);
@@ -79,7 +79,7 @@ export function AuditorClient({ id }: { id: string }) {
 
     es.addEventListener("error", (e) => {
       const msg = e instanceof MessageEvent ? String(e.data ?? "") : "";
-      setError(msg || "Error de streaming. Verifica CEREBRAS_API_KEY.");
+      setError(msg || "Error de streaming. Verifica CEREBRAS_API_KEY en Vercel.");
       setStatus("error");
       es.close();
     });
@@ -90,32 +90,55 @@ export function AuditorClient({ id }: { id: string }) {
   }, [id]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <section className="lg:col-span-5 space-y-4">
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] p-6">
-          <div className="kicker mb-2">Heurística determinística</div>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 rise rise-4">
+      {/* ── Panel izquierdo: heurística determinística ───────────── */}
+      <section className="lg:col-span-5">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] p-6 h-full">
+          <div className="flex items-baseline justify-between gap-3 mb-4">
+            <div className="kicker">I · Heurística determinista</div>
+            <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--color-muted)]">
+              SECOP-rules-v1
+            </span>
+          </div>
           {heuristic ? (
             <>
-              <ScoreBlock
+              <ScoreSeal
                 score={heuristic.score}
                 level={heuristic.level}
                 label="Score base"
+                tone="neutral"
                 summary={heuristic.summary}
               />
-              <ul className="mt-6 space-y-3">
-                {heuristic.signals.map((s) => (
-                  <li key={s.id} className="border-l-2 border-[var(--color-border-strong)] pl-3 py-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[13px] font-medium leading-tight">{s.title}</span>
-                      <SeverityBadge severity={s.severity} weight={s.weight} />
+              <div className="rule mt-6 mb-4" />
+              <ul className="space-y-0">
+                {heuristic.signals.map((s, i) => (
+                  <li
+                    key={s.id}
+                    className="grid grid-cols-12 gap-3 py-4 border-b border-[var(--color-border)]/40 last:border-b-0"
+                  >
+                    <div className="col-span-2">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+                        EV-{(i + 1).toString().padStart(2, "0")}
+                      </span>
                     </div>
-                    <p className="text-[12px] text-[var(--color-fg-2)] mt-1.5 leading-snug">
-                      {s.detail}
-                    </p>
+                    <div className="col-span-8">
+                      <h4 className="serif text-[15px] leading-snug font-medium text-[var(--color-fg)]">
+                        {s.title}
+                      </h4>
+                      <p className="text-[12px] text-[var(--color-fg-2)] mt-1.5 leading-relaxed">
+                        {s.detail}
+                      </p>
+                    </div>
+                    <div className="col-span-2 flex flex-col items-end gap-1">
+                      <SeverityType severity={s.severity} />
+                      <span className="font-mono text-[10px] text-[var(--color-muted)] tabular-nums">
+                        +{s.weight}
+                      </span>
+                    </div>
                   </li>
                 ))}
                 {heuristic.signals.length === 0 && (
-                  <li className="text-[13px] text-[var(--color-muted)]">
+                  <li className="text-[13px] text-[var(--color-muted)] py-4">
                     No se detectaron señales heurísticas para este contrato.
                   </li>
                 )}
@@ -123,7 +146,7 @@ export function AuditorClient({ id }: { id: string }) {
             </>
           ) : (
             <div className="space-y-3">
-              <div className="h-12 bg-[var(--color-surface-2)] animate-pulse" />
+              <div className="h-16 bg-[var(--color-surface-2)] animate-pulse" />
               <div className="h-20 bg-[var(--color-surface-2)] animate-pulse" />
               <div className="h-20 bg-[var(--color-surface-2)] animate-pulse" />
             </div>
@@ -131,40 +154,60 @@ export function AuditorClient({ id }: { id: string }) {
         </div>
       </section>
 
-      <section className="lg:col-span-7 space-y-4">
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] p-6">
-          <div className="flex items-baseline justify-between gap-3 mb-3">
-            <div className="kicker">Análisis cualitativo · Qwen 3 235B (Cerebras)</div>
+      {/* ── Panel derecho: análisis cualitativo del LLM ─────────── */}
+      <section className="lg:col-span-7">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] p-6 h-full relative overflow-hidden">
+          {/* Sello decorativo */}
+          {llm && <Stamp today={today} />}
+
+          <div className="flex items-baseline justify-between gap-3 mb-4">
+            <div className="kicker">II · Análisis cualitativo · LLM</div>
             <StatusPill status={status} />
           </div>
 
           {llm ? (
             <>
-              <ScoreBlock
+              <ScoreSeal
                 score={llm.scoreAjustado}
                 level={llm.nivel}
                 label="Score ajustado por AI"
+                tone="accent"
               />
-              <p className="text-[14px] leading-relaxed mt-5 text-[var(--color-fg)]">
+
+              <div className="rule mt-6 mb-4" />
+
+              <div className="kicker mb-3">Justificación</div>
+              <p className="dropcap serif text-[15px] leading-[1.65] text-[var(--color-fg)] max-w-2xl">
                 {llm.justificacion}
               </p>
 
               {llm.banderasAdicionales.length > 0 && (
                 <>
-                  <div className="kicker mt-6 mb-2">Banderas adicionales del LLM</div>
-                  <ul className="space-y-2">
+                  <div className="kicker mt-8 mb-3">
+                    Banderas adicionales <span className="text-[var(--color-muted-2)]">· {llm.banderasAdicionales.length}</span>
+                  </div>
+                  <ul className="space-y-0 border-t border-[var(--color-border)]">
                     {llm.banderasAdicionales.map((b, i) => (
                       <li
                         key={i}
-                        className="bg-[var(--color-surface-2)]/60 border-l-2 border-[var(--color-accent)] pl-3 py-2"
+                        className="grid grid-cols-12 gap-3 py-3 border-b border-[var(--color-border)]/40"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[13px] font-medium">{b.titulo}</span>
-                          <SeverityBadge severity={b.severidad} />
+                        <div className="col-span-2">
+                          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-accent-2)]">
+                            BA-{(i + 1).toString().padStart(2, "0")}
+                          </span>
                         </div>
-                        <p className="text-[12px] text-[var(--color-fg-2)] mt-1 leading-snug">
-                          {b.explicacion}
-                        </p>
+                        <div className="col-span-8">
+                          <h4 className="serif text-[15px] leading-snug font-medium text-[var(--color-fg)]">
+                            {b.titulo}
+                          </h4>
+                          <p className="text-[12px] text-[var(--color-fg-2)] mt-1 leading-relaxed">
+                            {b.explicacion}
+                          </p>
+                        </div>
+                        <div className="col-span-2 flex justify-end items-start">
+                          <SeverityType severity={b.severidad} />
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -173,40 +216,35 @@ export function AuditorClient({ id }: { id: string }) {
 
               {llm.citasObjeto.length > 0 && (
                 <>
-                  <div className="kicker mt-6 mb-2">Fragmentos citados del objeto</div>
-                  <ul className="space-y-1.5">
+                  <div className="kicker mt-8 mb-3">Fragmentos citados</div>
+                  <ul className="space-y-2">
                     {llm.citasObjeto.map((c, i) => (
                       <li
                         key={i}
-                        className="text-[12px] font-mono text-[var(--color-fg-2)] bg-[var(--color-surface-2)]/40 px-3 py-2 border-l-2 border-[var(--color-accent-2)]"
+                        className="serif italic text-[14px] text-[var(--color-fg-2)] border-l-2 border-[var(--color-accent-2)] pl-4 py-1 leading-relaxed"
                       >
-                        “{c}”
+                        <span className="text-[var(--color-accent)] mr-1">“</span>
+                        {c}
+                        <span className="text-[var(--color-accent)] ml-1">”</span>
                       </li>
                     ))}
                   </ul>
                 </>
               )}
 
-              <div className="mt-6 p-4 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/30">
-                <div className="kicker mb-1">Recomendación para veeduría</div>
-                <p className="text-[13px] text-[var(--color-fg)] leading-relaxed">
+              <div className="mt-8 border-2 border-[var(--color-accent)] bg-[var(--color-accent)]/5 p-5">
+                <div className="kicker text-[var(--color-accent)] mb-2 flex items-center gap-2">
+                  <span className="font-mono">►</span> Acción para veeduría
+                </div>
+                <p className="serif text-[15px] leading-[1.65] text-[var(--color-fg)]">
                   {llm.recomendacion}
                 </p>
               </div>
             </>
           ) : status === "error" ? (
-            <div className="text-[13px] text-[var(--color-danger)] py-6">{error}</div>
+            <ErrorPanel message={error ?? ""} />
           ) : (
-            <>
-              <div className="text-[12px] text-[var(--color-muted)] mb-3">
-                {status === "loading"
-                  ? "Cargando contrato y contexto de mercado…"
-                  : "Generando análisis (streaming)…"}
-              </div>
-              <pre className="text-[12px] font-mono text-[var(--color-fg-2)] whitespace-pre-wrap leading-relaxed bg-[var(--color-surface-2)]/30 p-4 max-h-[480px] overflow-auto">
-                {streamText || "  ▍"}
-              </pre>
-            </>
+            <StreamingPanel status={status} text={streamText} />
           )}
         </div>
       </section>
@@ -214,40 +252,64 @@ export function AuditorClient({ id }: { id: string }) {
   );
 }
 
-function ScoreBlock({
+function ScoreSeal({
   score,
   level,
   label,
+  tone,
   summary,
 }: {
   score: number;
   level: string;
   label: string;
+  tone: "neutral" | "accent";
   summary?: { high: number; medium: number; low: number };
 }) {
-  const tone =
+  const borderTone =
+    tone === "accent"
+      ? "border-[var(--color-accent)]"
+      : score >= 70
+        ? "border-[var(--color-danger)]"
+        : score >= 50
+          ? "border-[var(--color-warn)]"
+          : score >= 30
+            ? "border-[var(--color-accent)]"
+            : "border-[var(--color-border-strong)]";
+  const numTone =
     score >= 70
-      ? "bg-[var(--color-danger)] text-white"
+      ? "text-[var(--color-danger)]"
       : score >= 50
-        ? "bg-[var(--color-warn)] text-[var(--color-bg)]"
+        ? "text-[var(--color-warn)]"
         : score >= 30
-          ? "bg-[var(--color-accent)] text-[var(--color-bg)]"
-          : "bg-[var(--color-success)]/30 text-[var(--color-fg)]";
+          ? "text-[var(--color-accent)]"
+          : "text-[var(--color-fg)]";
   return (
-    <div className="flex items-center gap-4">
-      <div className={`px-4 py-3 ${tone}`}>
-        <div className="font-mono text-[40px] leading-none tabular-nums font-medium">{score}</div>
+    <div className="flex items-center gap-5">
+      <div className={`inline-flex flex-col items-center border-2 ${borderTone} px-5 py-3 bg-[var(--color-surface)]`}>
+        <div className={`serif text-[60px] leading-none font-medium tabular-nums ${numTone}`}>
+          {score}
+        </div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.3em] mt-1.5 text-[var(--color-muted)]">
+          / 100
+        </div>
       </div>
       <div className="flex flex-col">
         <div className="kicker">{label}</div>
-        <div className="text-[18px] font-semibold uppercase tracking-tight mt-0.5">{level}</div>
+        <div className="serif text-[24px] font-semibold uppercase tracking-tight mt-0.5">{level}</div>
         {summary && (
-          <div className="flex gap-2 mt-1 text-[11px] font-mono text-[var(--color-muted)]">
-            <span>{summary.high} alta</span>
-            <span>·</span>
-            <span>{summary.medium} media</span>
-            <span>·</span>
-            <span>{summary.low} baja</span>
+          <div className="flex gap-3 mt-2 text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 bg-[var(--color-danger)]" />
+              {summary.high} alta
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 bg-[var(--color-warn)]" />
+              {summary.medium} media
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 bg-[var(--color-fg-2)]" />
+              {summary.low} baja
+            </span>
           </div>
         )}
       </div>
@@ -255,25 +317,16 @@ function ScoreBlock({
   );
 }
 
-function SeverityBadge({
-  severity,
-  weight,
-}: {
-  severity: "alta" | "media" | "baja";
-  weight?: number;
-}) {
+function SeverityType({ severity }: { severity: "alta" | "media" | "baja" }) {
   const cls =
     severity === "alta"
-      ? "bg-[var(--color-danger)]/15 text-[var(--color-danger)] border-[var(--color-danger)]/30"
+      ? "text-[var(--color-danger)] decoration-[var(--color-danger)]"
       : severity === "media"
-        ? "bg-[var(--color-warn)]/15 text-[var(--color-warn)] border-[var(--color-warn)]/30"
-        : "bg-[var(--color-fg-2)]/10 text-[var(--color-fg-2)] border-[var(--color-fg-2)]/20";
+        ? "text-[var(--color-warn)] decoration-[var(--color-warn)]"
+        : "text-[var(--color-muted)] decoration-[var(--color-muted-2)]";
   return (
-    <span
-      className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 border ${cls} flex-shrink-0`}
-    >
+    <span className={`serif italic text-[12px] underline decoration-2 underline-offset-4 ${cls}`}>
       {severity}
-      {weight !== undefined && ` · ${weight}`}
     </span>
   );
 }
@@ -282,10 +335,73 @@ function StatusPill({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     idle: { label: "—", cls: "text-[var(--color-muted)]" },
     loading: { label: "● cargando", cls: "text-[var(--color-accent-2)]" },
-    streaming: { label: "● streaming", cls: "text-[var(--color-accent)] animate-pulse" },
-    done: { label: "✓ completo", cls: "text-[var(--color-success)]" },
+    streaming: {
+      label: "● en vivo · qwen 3 235b",
+      cls: "text-[var(--color-accent)]",
+    },
+    done: { label: "✓ informe completo", cls: "text-[var(--color-success)]" },
     error: { label: "✗ error", cls: "text-[var(--color-danger)]" },
   };
   const e = map[status] ?? map.idle;
-  return <span className={`text-[11px] font-mono ${e.cls}`}>{e.label}</span>;
+  const pulsing = status === "streaming" || status === "loading";
+  return (
+    <span
+      className={`font-mono text-[10px] uppercase tracking-[0.2em] ${e.cls} ${pulsing ? "animate-pulse" : ""}`}
+    >
+      {e.label}
+    </span>
+  );
+}
+
+function StreamingPanel({ status, text }: { status: string; text: string }) {
+  return (
+    <div className="space-y-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[var(--color-muted)] flex items-center gap-2">
+        <span
+          className={`size-1.5 rounded-full ${status === "loading" ? "bg-[var(--color-accent-2)]" : "bg-[var(--color-accent)]"} animate-pulse`}
+        />
+        {status === "loading"
+          ? "Recolectando contexto de mercado…"
+          : "Generando informe forense…"}
+      </div>
+      <pre className="font-mono text-[12px] leading-[1.75] text-[var(--color-fg-2)] whitespace-pre-wrap bg-[var(--color-bg-2)] p-5 border border-[var(--color-border)] max-h-[480px] overflow-auto">
+        {text || "  "}
+        <span className="cursor-blink text-[var(--color-accent)] not-italic font-bold">▍</span>
+      </pre>
+    </div>
+  );
+}
+
+function ErrorPanel({ message }: { message: string }) {
+  return (
+    <div className="border-2 border-[var(--color-danger)] bg-[var(--color-danger)]/5 p-5 mt-4">
+      <div className="kicker text-[var(--color-danger)] mb-2">Error · Análisis no disponible</div>
+      <p className="text-[13px] text-[var(--color-fg-2)] leading-relaxed">{message}</p>
+      <p className="text-[12px] font-mono text-[var(--color-muted)] mt-3 leading-relaxed">
+        Las señales heurísticas siguen vigentes en el panel izquierdo. Para activar el análisis AI,
+        configura <span className="text-[var(--color-accent)]">CEREBRAS_API_KEY</span> en las
+        variables de entorno de Vercel.
+      </p>
+    </div>
+  );
+}
+
+function Stamp({ today }: { today: string }) {
+  return (
+    <div
+      aria-hidden
+      className="absolute right-4 top-4 -rotate-[8deg] opacity-30 pointer-events-none hidden md:block"
+    >
+      <div className="border-2 border-[var(--color-accent)] rounded-full px-4 py-3 text-center min-w-[110px]">
+        <div className="font-mono text-[8px] uppercase tracking-[0.3em] text-[var(--color-accent)] leading-tight">
+          Auditado
+          <br />
+          por GobIA
+        </div>
+        <div className="font-mono text-[7px] text-[var(--color-fg-2)] mt-1 tracking-widest">
+          {today}
+        </div>
+      </div>
+    </div>
+  );
 }

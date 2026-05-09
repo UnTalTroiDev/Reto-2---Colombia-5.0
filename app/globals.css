@@ -116,3 +116,65 @@ table th {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Editorial entrance — page-load stagger */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.rise-1 {
+  animation-delay: 60ms;
+}
+.rise-2 {
+  animation-delay: 140ms;
+}
+.rise-3 {
+  animation-delay: 220ms;
+}
+.rise-4 {
+  animation-delay: 300ms;
+}
+
+/* Drop cap — first letter of editorial paragraphs */
+.dropcap::first-letter {
+  font-family: var(--font-serif);
+  font-size: 4em;
+  float: left;
+  line-height: 0.85;
+  margin-right: 0.08em;
+  margin-top: 0.05em;
+  color: var(--color-accent);
+  font-weight: 500;
+  font-variation-settings: "opsz" 144, "SOFT" 30;
+}
+
+/* NYT-style double rule */
+.double-rule {
+  border-top: 1px solid var(--color-border-strong);
+  border-bottom: 3px solid var(--color-border-strong);
+  height: 5px;
+}
+
+/* Cursor blink for streaming text */
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+.cursor-blink {
+  animation: blink 900ms steps(1, end) infinite;
+}

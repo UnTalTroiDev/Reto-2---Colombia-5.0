@@ -12,7 +12,7 @@ type Params = Promise<{ id: string }>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { id } = await params;
   return {
-    title: `Auditoría ${id} · GobIA Auditor`,
+    title: `Expediente ${id} · GobIA Auditor`,
     description: `Análisis AI de riesgo del contrato SECOP II ${id} con motor de señales heurísticas + LLM open-source.`,
   };
 }
@@ -24,44 +24,59 @@ export default async function AuditoriaPage({ params }: { params: Params }) {
 
   const url = typeof contrato.urlproceso === "object" ? contrato.urlproceso?.url : contrato.urlproceso;
   const objeto = contrato.objeto_del_contrato ?? contrato.descripcion_del_proceso ?? "(no reportado)";
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="space-y-8">
-      <nav aria-label="Breadcrumb" className="kicker">
-        <Link href="/auditor" className="hover:text-[var(--color-accent)]">
+    <div className="space-y-10 relative">
+      <nav aria-label="Breadcrumb" className="kicker rise rise-1">
+        <Link href="/auditor" className="hover:text-[var(--color-accent)] transition-colors">
           ← Volver al leaderboard
         </Link>
       </nav>
 
-      <header className="space-y-4">
-        <div className="kicker">
-          Contrato · {contrato.id_contrato}
+      <header className="space-y-5 rise rise-2 relative">
+        <div className="flex items-baseline gap-2 flex-wrap kicker">
+          <span>Expediente</span>
+          <span className="text-[var(--color-border-strong)]">·</span>
+          <span className="text-[var(--color-fg-2)]">{contrato.id_contrato}</span>
           {url && (
             <>
-              {" · "}
+              <span className="text-[var(--color-border-strong)]">·</span>
               <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-[var(--color-accent)] underline"
+                className="hover:text-[var(--color-accent)] transition-colors underline decoration-1 underline-offset-4"
               >
                 Ver en SECOP II ↗
               </a>
             </>
           )}
         </div>
-        <h1 className="serif text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
+        <h1 className="serif text-[40px] md:text-[56px] font-semibold leading-[0.98] tracking-tighter">
           {contrato.nombre_entidad ?? "(entidad no reportada)"}
         </h1>
-        <p className="text-[15px] text-[var(--color-fg-2)] leading-relaxed max-w-4xl">
-          Adjudicado a{" "}
-          <strong className="text-[var(--color-fg)]">{contrato.proveedor_adjudicado ?? "(sin proveedor)"}</strong>
-          {" · "}
-          {contrato.modalidad_de_contratacion ?? "modalidad no reportada"} ·{" "}
-          {contrato.tipo_de_contrato ?? "tipo no reportado"}
-        </p>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-[var(--color-border)] mt-4">
+        <div className="border-t border-b-[3px] border-[var(--color-border-strong)] py-3 flex items-baseline gap-3 flex-wrap text-[13px]">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            Adjudicado a
+          </span>
+          <span className="font-medium text-[var(--color-fg)]">
+            {contrato.proveedor_adjudicado ?? "(sin proveedor)"}
+          </span>
+          <span className="text-[var(--color-border-strong)]">/</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            Modalidad
+          </span>
+          <span className="serif italic">{contrato.modalidad_de_contratacion ?? "—"}</span>
+          <span className="text-[var(--color-border-strong)]">/</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            Tipo
+          </span>
+          <span className="serif italic">{contrato.tipo_de_contrato ?? "—"}</span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-[var(--color-border)] mt-2">
           <KV label="Departamento" value={contrato.departamento ?? "—"} />
           <KV label="Sector" value={contrato.sector ?? "—"} />
           <KV label="Estado" value={contrato.estado_contrato ?? "—"} />
@@ -78,27 +93,30 @@ export default async function AuditoriaPage({ params }: { params: Params }) {
         </div>
       </header>
 
-      <section className="bg-[var(--color-surface)] border border-[var(--color-border)] p-6">
-        <div className="kicker mb-2">Objeto del contrato</div>
-        <p className="text-[14px] leading-relaxed text-[var(--color-fg)] whitespace-pre-wrap">
-          {objeto}
-        </p>
+      <section className="rise rise-3 relative">
+        <div className="kicker mb-2">Objeto declarado</div>
+        <blockquote className="border-l-4 border-[var(--color-accent)] pl-5 py-2">
+          <p className="dropcap serif text-[17px] leading-[1.65] text-[var(--color-fg)] italic max-w-3xl">
+            {objeto}
+          </p>
+        </blockquote>
       </section>
 
-      <AuditorClient id={id} />
+      <AuditorClient id={id} today={today} />
 
-      <footer className="text-[11px] text-[var(--color-muted)] border-t border-[var(--color-border)] pt-4">
-        Datos en vivo de{" "}
+      <footer className="text-[11px] font-mono text-[var(--color-muted)] border-t border-[var(--color-border)] pt-4 leading-relaxed">
+        <span className="uppercase tracking-[0.2em]">Fuente</span> ·{" "}
         <a
-          className="hover:text-[var(--color-accent)] underline"
+          className="hover:text-[var(--color-accent)] underline decoration-1 underline-offset-4"
           href={`https://www.datos.gov.co/resource/jbjy-vk9h.json?id_contrato=${encodeURIComponent(id)}`}
           target="_blank"
           rel="noopener noreferrer"
         >
           datos.gov.co · jbjy-vk9h
-        </a>
-        . Análisis generado con Qwen 3 235B (Cerebras) — modelo open-source de Alibaba. El score y
-        las recomendaciones son orientativas para veeduría ciudadana, no constituyen acusación.
+        </a>{" "}
+        · <span className="uppercase tracking-[0.2em]">Modelo</span> · Qwen 3 235B-A22B (Cerebras, OSS) ·{" "}
+        <span className="uppercase tracking-[0.2em]">Aviso</span> · Score y recomendaciones orientativas para
+        veeduría ciudadana, no constituyen acusación.
       </footer>
     </div>
   );
@@ -107,9 +125,11 @@ export default async function AuditoriaPage({ params }: { params: Params }) {
 function KV({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="bg-[var(--color-surface)] p-3">
-      <div className="kicker text-[10px]">{label}</div>
+      <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--color-muted)]">
+        {label}
+      </div>
       <div
-        className={`text-[13px] mt-1 truncate ${mono ? "font-mono tabular-nums" : ""}`}
+        className={`text-[13px] mt-1.5 truncate ${mono ? "font-mono tabular-nums" : "serif"}`}
         title={value}
       >
         {value}
