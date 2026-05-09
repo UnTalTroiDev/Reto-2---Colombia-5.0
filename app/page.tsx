@@ -34,10 +34,13 @@ export default function HomePage() {
             del contrato y aporta el análisis cualitativo que ninguna regla captura. Cobertura
             nacional sobre 5,6M de contratos vivos.
           </p>
-          <p className="text-[12px] text-[var(--color-muted)] mt-3 max-w-2xl leading-relaxed font-mono">
-            Modelos open-source en Cerebras (free tier): Qwen 3 235B Instruct ·
-            OpenAI GPT-OSS 120B · Z.ai GLM 4.7 · Llama 3.1 8B (con fallback automático cuando uno se
-            rate-limita).
+          <p className="text-[15px] text-[var(--color-fg-2)] mt-3 max-w-2xl leading-relaxed">
+            Modelos open-source en Cerebras (free tier):{" "}
+            <span className="text-[var(--color-accent-2)]">Qwen 3 235B Instruct</span> ·{" "}
+            <span className="text-[var(--color-accent-2)]">OpenAI GPT-OSS 120B</span> ·{" "}
+            <span className="text-[var(--color-accent-2)]">Z.ai GLM 4.7</span> ·{" "}
+            <span className="text-[var(--color-accent-2)]">Llama 3.1 8B</span> (con fallback
+            automático cuando uno se rate-limita).
           </p>
           <div className="flex flex-wrap gap-2 mt-6">
             <Link
