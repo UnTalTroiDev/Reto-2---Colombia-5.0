@@ -32,7 +32,7 @@ export default function HomePage() {
             (modalidad, concentración proveedor-entidad, valor atípico, plazos, transparencia) con un{" "}
             <span className="text-[var(--color-accent-2)]">LLM open-source</span> que lee el objeto
             del contrato y aporta el análisis cualitativo que ninguna regla captura. Cobertura
-            nacional sobre 5,6M de contratos vivos.
+            nacional sobre millones de contratos vivos.
           </p>
           <p className="text-[15px] text-[var(--color-fg-2)] mt-3 max-w-2xl leading-relaxed">
             Modelos open-source en Cerebras (free tier):{" "}
