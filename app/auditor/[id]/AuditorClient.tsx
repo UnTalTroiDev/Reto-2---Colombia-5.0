@@ -345,16 +345,6 @@ export function AuditorClient({
                 </>
               )}
 
-              <div className="mt-8 border-2 border-[var(--color-accent)] bg-[var(--color-accent)]/5 p-5">
-                <div className="kicker text-[var(--color-accent)] mb-2 flex items-center gap-2">
-                  <span className="font-mono">►</span> Acción para veeduría
-                </div>
-                <p className="serif text-[15px] leading-[1.65] text-[var(--color-fg)]">
-                  {llm.recomendacion}
-                </p>
-              </div>
-
-              <CitizenActions id={id} contexto={contexto} llm={llm} />
             </>
           ) : status === "error" ? (
             <ErrorPanel message={error ?? ""} />
@@ -364,6 +354,43 @@ export function AuditorClient({
         </div>
       </section>
       </div>
+
+      {/* ── ACCIÓN — bloque headline full-width, clímax del dossier ─── */}
+      {llm && (
+        <section className="rise rise-4" aria-labelledby="accion-veeduria">
+          <div className="relative">
+            {/* Stripe superior con marca de acción */}
+            <div className="bg-[var(--color-accent)] text-[var(--color-bg)] px-6 md:px-8 py-3.5 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[20px] leading-none" aria-hidden>
+                  ►
+                </span>
+                <h2
+                  id="accion-veeduria"
+                  className="font-mono text-[12px] md:text-[14px] uppercase tracking-[0.32em] font-bold leading-none"
+                >
+                  Acción para veeduría
+                </h2>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em] opacity-90">
+                Conclusión del agente · score {llm.scoreAjustado}/100
+              </span>
+            </div>
+
+            {/* Cuerpo: recomendación AI a tamaño headline */}
+            <div className="border-l-[3px] border-r-[3px] border-b-[3px] border-[var(--color-accent)] bg-[var(--color-accent)]/8 p-6 md:p-10">
+              <div className="kicker mb-4 text-[var(--color-accent)]">
+                Recomendación del agente
+              </div>
+              <p className="dropcap serif text-[22px] md:text-[28px] leading-[1.4] text-[var(--color-fg)] font-medium max-w-4xl tracking-tight">
+                {llm.recomendacion}
+              </p>
+
+              <CitizenActions id={id} contexto={contexto} llm={llm} />
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
