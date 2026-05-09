@@ -163,18 +163,39 @@ export function AuditorClient({
     return set;
   }, [heuristic]);
   const llmCats = useMemo(() => new Set<Categoria>(llm?.categoriasDetectadas ?? []), [llm]);
+  const detectedCount = useMemo(
+    () => new Set<Categoria>([...heuristicCats, ...llmCats]).size,
+    [heuristicCats, llmCats]
+  );
+  const analysisReady = !!heuristic && (!!llm || status === "error");
 
   return (
     <div className="space-y-6 rise rise-4">
-      {/* ── 5 ALERTAS DE BANDERAS ROJAS ─────────────────────────── */}
+      {/* ── ALERTAS DE BANDERAS ROJAS ───────────────────────────── */}
       <section>
         <div className="flex items-end justify-between gap-3 mb-4 flex-wrap">
           <div>
-            <h2 className="serif text-[28px] md:text-[34px] font-semibold tracking-tight leading-none text-[#ff2e2e] [text-shadow:0_0_18px_rgba(255,46,46,0.35)]">
-              5 banderas rojas
-            </h2>
+            {analysisReady ? (
+              <h2
+                className={`serif text-[28px] md:text-[34px] font-semibold tracking-tight leading-none ${
+                  detectedCount > 0
+                    ? "text-[#ff2e2e] [text-shadow:0_0_18px_rgba(255,46,46,0.35)]"
+                    : "text-[var(--color-ok,#22c55e)]"
+                }`}
+              >
+                {detectedCount === 0
+                  ? "Sin banderas rojas"
+                  : `${detectedCount} ${detectedCount === 1 ? "bandera roja" : "banderas rojas"}`}
+              </h2>
+            ) : (
+              <h2 className="serif text-[28px] md:text-[34px] font-semibold tracking-tight leading-none text-[var(--color-muted)]">
+                Analizando…
+              </h2>
+            )}
             <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-[var(--color-muted)] mt-2">
-              Marco canónico de auditoría
+              {analysisReady
+                ? `Detectadas en este contrato · ${detectedCount}/5 del marco canónico`
+                : "Marco canónico de auditoría · 5 categorías"}
             </div>
           </div>
           <div className="flex gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
