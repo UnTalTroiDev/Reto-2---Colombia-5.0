@@ -306,9 +306,17 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
-function isRateLimit(e: unknown): boolean {
+/**
+ * Errores que justifican saltar al siguiente modelo en MODELS:
+ * - 429 / rate limit / high traffic → cuota momentánea agotada
+ * - 404 / "does not exist" / "do not have access" → modelo no habilitado en la cuenta
+ * Cualquier otro error se propaga para no enmascarar bugs.
+ */
+function isSkippable(e: unknown): boolean {
   const msg = String(e instanceof Error ? e.message : e);
-  return /429|rate.?limit|high.?traffic/i.test(msg);
+  return /429|rate.?limit|high.?traffic|\b404\b|does not exist|do not have access|not available/i.test(
+    msg,
+  );
 }
 
 async function runOnce(
@@ -352,8 +360,9 @@ export async function auditWithLlm(
       return result;
     } catch (e) {
       lastError = e;
-      // Solo intentamos siguiente modelo si es rate limit; otros errores se propagan.
-      if (!isRateLimit(e)) throw e;
+      // Saltamos al siguiente modelo en rate-limit (429) y modelo no accesible (404).
+      // Otros errores se propagan.
+      if (!isSkippable(e)) throw e;
     }
   }
   throw lastError;
@@ -419,7 +428,9 @@ export async function auditWithLlmStream(
       break;
     } catch (e) {
       lastError = e;
-      if (!isRateLimit(e)) break; // si no es 429, no tiene sentido reintentar
+      // Saltamos al siguiente modelo en 429 (rate limit) o 404 (sin acceso).
+      // Otros errores no se reintentan.
+      if (!isSkippable(e)) break;
     }
   }
 
@@ -429,7 +440,7 @@ export async function auditWithLlmStream(
       start(controller) {
         controller.enqueue(
           encoder.encode(
-            `event: error\ndata: ${JSON.stringify({ message: `Todos los modelos rate-limited: ${msg}` })}\n\n`,
+            `event: error\ndata: ${JSON.stringify({ message: `Ningún modelo OSS disponible (rate-limited o sin acceso). Último error: ${msg}` })}\n\n`,
           ),
         );
         controller.close();
