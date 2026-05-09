@@ -66,6 +66,35 @@ export const ENDPOINTS: EndpointMeta[] = [
     example: "/api/contratos/rankings?field=departamento&measure=count&limit=10",
   },
   {
+    path: "/api/auditor/leaderboard",
+    method: "GET",
+    description:
+      "Top de contratos con mayor score de riesgo. Solo heurísticas (sin LLM) — rápido, sin gastar tokens.",
+    query: {
+      limit: "number (5..50, default 20)",
+      pool: "number (50..500, default 200) — cuántos candidatos evaluar",
+      departamento: "string — filtra por departamento",
+      sector: "string — filtra por sector",
+      modalidad: "string — substring para modalidad de contratación",
+      valor_min: "number — valor mínimo del contrato (default 100M COP)",
+    },
+    example: "/api/auditor/leaderboard?departamento=Bogotá&limit=10",
+  },
+  {
+    path: "/api/auditor/{id_contrato}",
+    method: "GET",
+    description:
+      "Auditoría completa de un contrato: heurísticas + análisis cualitativo del LLM (Qwen 3 235B vía Cerebras).",
+    example: "/api/auditor/CO1.PCCNTR.8613484",
+  },
+  {
+    path: "/api/auditor/{id_contrato}/stream",
+    method: "GET",
+    description:
+      "Versión SSE (Server-Sent Events) de la auditoría individual. Emite eventos `heuristic`, `delta`, `done`, `error`.",
+    example: "/api/auditor/CO1.PCCNTR.8613484/stream",
+  },
+  {
     path: "/api/documentos/stats",
     method: "GET",
     description:
