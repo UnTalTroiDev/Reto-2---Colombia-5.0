@@ -94,9 +94,24 @@ export default async function AuditoriaPage({ params }: { params: Params }) {
       </header>
 
       <section className="rise rise-3 relative">
-        <div className="kicker mb-2">Objeto declarado</div>
-        <blockquote className="border-l-4 border-[var(--color-accent)] pl-5 py-2">
-          <p className="dropcap serif text-[17px] leading-[1.65] text-[var(--color-fg)] italic max-w-3xl">
+        <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
+          <div className="kicker">Objeto declarado</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            Texto verbatim · SECOP II
+          </div>
+        </div>
+        <blockquote className="border-l-[3px] border-[var(--color-accent)] pl-6 md:pl-8 py-2">
+          <p
+            lang="es"
+            className="dropcap serif text-[20px] md:text-[22px] leading-[1.45] text-[var(--color-fg)] max-w-3xl font-normal break-words"
+            style={{
+              letterSpacing: "0.015em",
+              hyphens: "auto",
+              WebkitHyphens: "auto",
+              fontFeatureSettings: '"ss01", "ss02", "kern"',
+              fontVariationSettings: '"opsz" 28, "SOFT" 60',
+            }}
+          >
             {objeto}
           </p>
         </blockquote>
