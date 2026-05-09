@@ -28,15 +28,16 @@ export default function HomePage() {
           </h1>
           <p className="text-[15px] text-[var(--color-fg-2)] mt-5 max-w-2xl leading-relaxed">
             Combinamos un motor de{" "}
-            <em className="text-[var(--color-accent-2)] not-italic font-mono text-[13px]">
-              señales heurísticas
-            </em>{" "}
+            <span className="text-[var(--color-accent-2)]">señales heurísticas</span>{" "}
             (modalidad, concentración proveedor-entidad, valor atípico, plazos, transparencia) con un{" "}
-            <em className="text-[var(--color-accent-2)] not-italic font-mono text-[13px]">
-              LLM open-source
-            </em>{" "}
-            (Qwen 3 235B en Cerebras) que lee el objeto del contrato y aporta el análisis cualitativo
-            que ninguna regla captura. Cobertura nacional sobre 5,6M de contratos vivos.
+            <span className="text-[var(--color-accent-2)]">LLM open-source</span> que lee el objeto
+            del contrato y aporta el análisis cualitativo que ninguna regla captura. Cobertura
+            nacional sobre 5,6M de contratos vivos.
+          </p>
+          <p className="text-[12px] text-[var(--color-muted)] mt-3 max-w-2xl leading-relaxed font-mono">
+            Modelos open-source en Cerebras (free tier): Qwen 3 235B Instruct ·
+            OpenAI GPT-OSS 120B · Z.ai GLM 4.7 · Llama 3.1 8B (con fallback automático cuando uno se
+            rate-limita).
           </p>
           <div className="flex flex-wrap gap-2 mt-6">
             <Link

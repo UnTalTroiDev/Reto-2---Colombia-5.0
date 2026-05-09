@@ -41,10 +41,16 @@ export default async function AuditorPage({
             Vigilancia activa de la <span className="text-[var(--color-accent)]">contratación</span> pública.
           </h1>
           <p className="text-[15px] text-[var(--color-fg-2)] mt-5 max-w-2xl leading-relaxed">
-            Cada fila de esta tabla es un <em className="not-italic font-semibold text-[var(--color-fg)]">expediente</em>{" "}
-            con un score de riesgo calculado por nuestro motor heurístico. Click en{" "}
-            <span className="font-mono text-[12px] tracking-wider text-[var(--color-accent)]">AUDITAR ↗</span>{" "}
-            para que el LLM genere el informe forense completo en vivo.
+            Cada fila de esta tabla es un{" "}
+            <em className="not-italic font-semibold text-[var(--color-fg)]">expediente</em> con un
+            score de{" "}
+            <span className="text-[var(--color-accent-2)]">riesgo</span> calculado por nuestro motor
+            de <span className="text-[var(--color-accent-2)]">señales heurísticas</span>. Click en{" "}
+            <span className="font-mono text-[12px] tracking-wider text-[var(--color-accent)]">
+              AUDITAR ↗
+            </span>{" "}
+            para que el <span className="text-[var(--color-accent-2)]">LLM open-source</span>{" "}
+            genere el informe forense completo en vivo.
           </p>
         </div>
         <div className="lg:col-span-4 rise rise-2">

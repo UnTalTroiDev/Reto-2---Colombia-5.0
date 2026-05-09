@@ -1,10 +1,56 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type Categoria =
+  | "implementacion"
+  | "licitacion"
+  | "relaciones"
+  | "conflictos_interes"
+  | "financiero";
+
+const CATEGORIAS_INFO: Array<{
+  key: Categoria;
+  short: string;
+  full: string;
+  desc: string;
+}> = [
+  {
+    key: "implementacion",
+    short: "Implementación",
+    full: "Irregularidades en la implementación",
+    desc: "Plazos sospechosos, otrosíes excesivos, ejecución sin liquidación.",
+  },
+  {
+    key: "licitacion",
+    short: "Licitación",
+    full: "Procesos de licitación viciados",
+    desc: "Modalidad que recorta competencia, justificación genérica, fraccionamiento.",
+  },
+  {
+    key: "relaciones",
+    short: "Relaciones",
+    full: "Relaciones inusuales",
+    desc: "Concentración proveedor-entidad, identidades incompletas, autosupervisión.",
+  },
+  {
+    key: "conflictos_interes",
+    short: "Conflictos",
+    full: "Conflictos de interés",
+    desc: "Misma persona como representante, ordenador, supervisor o pagador.",
+  },
+  {
+    key: "financiero",
+    short: "Financiero",
+    full: "Inconsistencias financieras",
+    desc: "Anticipos atípicos, pagos > facturación, redondeos sospechosos.",
+  },
+];
 
 type Signal = {
   id: string;
   category: string;
+  umbrella?: Categoria;
   severity: "alta" | "media" | "baja";
   weight: number;
   title: string;
@@ -21,9 +67,11 @@ type Heuristica = {
 type LlmResult = {
   scoreAjustado: number;
   nivel: "crítico" | "alto" | "medio" | "bajo" | "mínimo";
+  categoriasDetectadas: Categoria[];
   banderasAdicionales: Array<{
     titulo: string;
     severidad: "alta" | "media" | "baja";
+    categoria: Categoria;
     explicacion: string;
   }>;
   justificacion: string;
@@ -89,10 +137,55 @@ export function AuditorClient({ id, today }: { id: string; today: string }) {
     };
   }, [id]);
 
+  // Conjunto de categorías disparadas por heurística + LLM (union)
+  const heuristicCats = useMemo(() => {
+    const set = new Set<Categoria>();
+    heuristic?.signals.forEach((s) => {
+      if (s.umbrella) set.add(s.umbrella);
+    });
+    return set;
+  }, [heuristic]);
+  const llmCats = useMemo(() => new Set<Categoria>(llm?.categoriasDetectadas ?? []), [llm]);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 rise rise-4">
-      {/* ── Panel izquierdo: heurística determinística ───────────── */}
-      <section className="lg:col-span-5">
+    <div className="space-y-6 rise rise-4">
+      {/* ── 5 ALERTAS DE BANDERAS ROJAS ─────────────────────────── */}
+      <section>
+        <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
+          <div className="kicker">5 banderas rojas · marco canónico de auditoría</div>
+          <div className="flex gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-[var(--color-warn)]" /> Heurística
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-[var(--color-danger)]" /> LLM
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-[var(--color-border)]">
+          {CATEGORIAS_INFO.map((c) => {
+            const heuristicHit = heuristicCats.has(c.key);
+            const llmHit = llmCats.has(c.key);
+            const active = heuristicHit || llmHit;
+            return (
+              <AlertCell
+                key={c.key}
+                short={c.short}
+                full={c.full}
+                desc={c.desc}
+                active={active}
+                heuristic={heuristicHit}
+                llm={llmHit}
+                pending={!llm && status !== "error"}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ── Panel izquierdo: heurística determinística ───────────── */}
+        <section className="lg:col-span-5">
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] p-6 h-full">
           <div className="flex items-baseline justify-between gap-3 mb-4">
             <div className="kicker">I · Heurística determinista</div>
@@ -201,7 +294,10 @@ export function AuditorClient({ id, today }: { id: string; today: string }) {
                           <h4 className="serif text-[15px] leading-snug font-medium text-[var(--color-fg)]">
                             {b.titulo}
                           </h4>
-                          <p className="text-[12px] text-[var(--color-fg-2)] mt-1 leading-relaxed">
+                          <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--color-accent)] mt-1">
+                            {CATEGORIAS_INFO.find((c) => c.key === b.categoria)?.full ?? b.categoria}
+                          </div>
+                          <p className="text-[12px] text-[var(--color-fg-2)] mt-1.5 leading-relaxed">
                             {b.explicacion}
                           </p>
                         </div>
@@ -248,7 +344,69 @@ export function AuditorClient({ id, today }: { id: string; today: string }) {
           )}
         </div>
       </section>
+      </div>
     </div>
+  );
+}
+
+function AlertCell({
+  short,
+  full,
+  desc,
+  active,
+  heuristic,
+  llm,
+  pending,
+}: {
+  short: string;
+  full: string;
+  desc: string;
+  active: boolean;
+  heuristic: boolean;
+  llm: boolean;
+  pending: boolean;
+}) {
+  const stateClass = active
+    ? "bg-[var(--color-danger)]/10 border-l-2 border-l-[var(--color-danger)]"
+    : "bg-[var(--color-surface)] border-l-2 border-l-transparent";
+  const titleColor = active ? "text-[var(--color-danger)]" : "text-[var(--color-fg-2)]";
+  const valueColor = active ? "text-[var(--color-fg)]" : "text-[var(--color-muted)]";
+
+  return (
+    <article
+      className={`p-4 ${stateClass} relative transition-colors`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={`kicker ${titleColor}`}>{short}</span>
+        <div className="flex gap-1">
+          {heuristic && (
+            <span
+              title="Detectado por heurística"
+              className="size-1.5 rounded-full bg-[var(--color-warn)] flex-shrink-0"
+              aria-hidden
+            />
+          )}
+          {llm && (
+            <span
+              title="Detectado por LLM"
+              className="size-1.5 rounded-full bg-[var(--color-danger)] animate-pulse flex-shrink-0"
+              aria-hidden
+            />
+          )}
+        </div>
+      </div>
+      <div className={`serif text-[15px] mt-1.5 leading-tight font-medium ${valueColor}`}>
+        {active ? "ALERTA" : pending ? "..." : "limpio"}
+      </div>
+      <div
+        className="text-[10px] text-[var(--color-muted)] mt-1.5 leading-snug line-clamp-2"
+        title={`${full} — ${desc}`}
+      >
+        {full}
+      </div>
+    </article>
   );
 }
 

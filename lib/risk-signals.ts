@@ -11,8 +11,20 @@
 
 export type Severity = "alta" | "media" | "baja";
 
+/**
+ * Las 5 banderas rojas canónicas para auditoría de contratación pública.
+ * Cada señal heurística mapea a una de estas para vista unificada en UI.
+ */
+export type CategoriaRiesgo =
+  | "implementacion"
+  | "licitacion"
+  | "relaciones"
+  | "conflictos_interes"
+  | "financiero";
+
 export type RiskSignal = {
   id: string;
+  /** Categoría interna detallada (mantenida para retrocompatibilidad). */
   category:
     | "modalidad"
     | "valor"
@@ -20,6 +32,8 @@ export type RiskSignal = {
     | "transparencia"
     | "temporal"
     | "datos";
+  /** Una de las 5 banderas rojas canónicas. */
+  umbrella: CategoriaRiesgo;
   severity: Severity;
   weight: number; // contribución al score (0..100)
   title: string;
@@ -164,6 +178,7 @@ export function evaluateContract(
       signals.push({
         id: "modalidad-riesgo",
         category: "modalidad",
+        umbrella: "licitacion",
         severity: sevExtra ? "alta" : key === "contratación directa" ? "alta" : "media",
         weight: cfg.weight + (sevExtra ? 8 : 0),
         title: `Modalidad de riesgo: ${row.modalidad_de_contratacion}`,
@@ -173,12 +188,32 @@ export function evaluateContract(
     }
   }
 
-  // ── 2. Valor del contrato ─────────────────────────────────────
+  // Justificación genérica de la modalidad (heurística)
+  const just = (row.justificacion_modalidad_de ?? "").trim();
+  if (
+    !isPlaceholder(just) &&
+    just.length > 0 &&
+    just.length < 60 &&
+    /^(servicios profesionales|apoyo a la gestión|prestación de servicios|contratación directa)$/i.test(just)
+  ) {
+    signals.push({
+      id: "justificacion-generica",
+      category: "modalidad",
+      umbrella: "licitacion",
+      severity: "media",
+      weight: 8,
+      title: "Justificación genérica de la modalidad",
+      detail: `La justificación es genérica ("${just}"), sin detallar por qué no aplica licitación pública.`,
+    });
+  }
+
+  // ── 2. Valor del contrato (financiero) ───────────────────────
   if (valor !== null) {
     if (valor === 0) {
       signals.push({
         id: "valor-cero",
         category: "valor",
+        umbrella: "financiero",
         severity: "media",
         weight: 10,
         title: "Valor del contrato igual a cero",
@@ -189,6 +224,7 @@ export function evaluateContract(
       signals.push({
         id: "valor-negativo",
         category: "valor",
+        umbrella: "financiero",
         severity: "alta",
         weight: 18,
         title: "Valor del contrato negativo",
@@ -203,6 +239,7 @@ export function evaluateContract(
       signals.push({
         id: "valor-atipico-tipo",
         category: "valor",
+        umbrella: "financiero",
         severity: "media",
         weight: 12,
         title: `Valor ${(valor / median).toFixed(1)}x sobre mediana del tipo`,
@@ -215,6 +252,7 @@ export function evaluateContract(
       signals.push({
         id: "anticipo-excesivo",
         category: "valor",
+        umbrella: "financiero",
         severity: "alta",
         weight: 14,
         title: `Anticipo del ${((adelantado / valor) * 100).toFixed(0)}% del valor`,
@@ -222,10 +260,71 @@ export function evaluateContract(
           "El Decreto 1082/2015 limita el anticipo al 50% en obra pública. Anticipos altos son una señal clásica de captura del flujo de caja.",
       });
     }
+
+    // Anticipo cobrado sin habilitación (inconsistencia financiera)
+    if (
+      adelantado !== null &&
+      adelantado > 0 &&
+      String(row.habilita_pago_adelantado ?? "").toLowerCase() === "no"
+    ) {
+      signals.push({
+        id: "anticipo-no-habilitado",
+        category: "valor",
+        umbrella: "financiero",
+        severity: "alta",
+        weight: 16,
+        title: "Anticipo registrado sin habilitación de pago adelantado",
+        detail:
+          "El contrato declara que NO habilita pago adelantado pero registra valor de anticipo. Inconsistencia documental grave.",
+      });
+    }
+
+    // Redondeo sospechoso: valores grandes en millones perfectamente redondos
+    if (valor >= 100_000_000 && valor % 1_000_000 === 0 && valor % 10_000_000 === 0) {
+      signals.push({
+        id: "redondeo-sospechoso",
+        category: "valor",
+        umbrella: "financiero",
+        severity: "baja",
+        weight: 4,
+        title: `Valor exacto en decenas de millones (${formatCop(valor)})`,
+        detail:
+          "Contratos con valores perfectamente redondos a decenas de millones pueden indicar que no se hizo un cálculo real de costos sino una asignación discrecional.",
+      });
+    }
+
+    // Sobre-ejecución: facturado > contrato
+    const facturado = toNumber(row.valor_facturado);
+    if (facturado !== null && valor > 0 && facturado > valor * 1.05) {
+      signals.push({
+        id: "sobre-ejecucion",
+        category: "valor",
+        umbrella: "implementacion",
+        severity: "alta",
+        weight: 14,
+        title: `Facturado ${(((facturado - valor) / valor) * 100).toFixed(0)}% por encima del contrato`,
+        detail: `Valor facturado ${formatCop(facturado)} excede el valor del contrato ${formatCop(valor)}. Sobreejecución sin adendas registradas.`,
+      });
+    }
+
+    // Pago > facturado
+    const pagado = toNumber(row.valor_pagado);
+    if (pagado !== null && facturado !== null && facturado > 0 && pagado > facturado * 1.05) {
+      signals.push({
+        id: "pago-mayor-facturado",
+        category: "valor",
+        umbrella: "financiero",
+        severity: "alta",
+        weight: 12,
+        title: "Valor pagado supera el valor facturado",
+        detail: `Pagado ${formatCop(pagado)} > facturado ${formatCop(facturado)}. Inconsistencia contable que requiere conciliación.`,
+      });
+    }
   } else {
     signals.push({
       id: "valor-faltante",
       category: "datos",
+      umbrella: "financiero",
       severity: "media",
       weight: 8,
       title: "Valor del contrato no reportado",
@@ -233,7 +332,26 @@ export function evaluateContract(
     });
   }
 
-  // ── 3. Concentración proveedor-entidad ────────────────────────
+  // Contrato terminado sin liquidación
+  const estado = (row.estado_contrato ?? "").toLowerCase();
+  const liquidacion = String(row.liquidaci_n ?? "").toLowerCase();
+  if (
+    (estado.includes("termin") || estado.includes("liquid")) &&
+    liquidacion === "no"
+  ) {
+    signals.push({
+      id: "no-liquidacion",
+      category: "datos",
+      umbrella: "implementacion",
+      severity: "media",
+      weight: 8,
+      title: "Contrato terminado sin liquidación registrada",
+      detail:
+        "El contrato aparece como terminado pero no se ha liquidado. La Ley 80 obliga a liquidar dentro de 4 meses post-terminación.",
+    });
+  }
+
+  // ── 3. Concentración proveedor-entidad (relaciones inusuales) ──
   if (ctx.providerEntityContracts && ctx.providerEntityContracts >= 5) {
     const sev: Severity =
       ctx.providerEntityContracts >= 20
@@ -245,6 +363,7 @@ export function evaluateContract(
     signals.push({
       id: "concentracion-proveedor",
       category: "concentracion",
+      umbrella: "relaciones",
       severity: sev,
       weight,
       title: `${ctx.providerEntityContracts} contratos del mismo proveedor con esta entidad`,
@@ -254,13 +373,77 @@ export function evaluateContract(
     });
   }
 
-  // ── 4. Plazos sospechosos ─────────────────────────────────────
+  // ── 3b. Conflictos de interés (mismas personas controlando) ──
+  // Casteo a Record para acceder a campos no-tipados que vienen del API
+  const r = row as unknown as Record<string, unknown>;
+  const ordGastoDoc = String(r.n_mero_de_documento_ordenador_del_gasto ?? "").trim();
+  const supDoc = String(r.n_mero_de_documento_supervisor ?? "").trim();
+  const ordPagoDoc = String(r.n_mero_de_documento_ordenador_de_pago ?? "").trim();
+  const repLegalDoc = String(r.identificaci_n_representante_legal ?? "").trim();
+
+  // Autosupervisión: ordenador del gasto = supervisor
+  if (
+    ordGastoDoc &&
+    supDoc &&
+    ordGastoDoc === supDoc &&
+    !isPlaceholder(ordGastoDoc)
+  ) {
+    signals.push({
+      id: "autosupervision",
+      category: "concentracion",
+      umbrella: "conflictos_interes",
+      severity: "alta",
+      weight: 18,
+      title: "Ordenador del gasto y supervisor son la misma persona",
+      detail:
+        "La misma persona aprueba el gasto y verifica su ejecución. Falla del control interno de la entidad — patrón clásico observado por la Contraloría.",
+    });
+  }
+
+  // Pago a uno mismo: representante legal del proveedor = ordenador del gasto/pago de la entidad
+  if (
+    repLegalDoc &&
+    !isPlaceholder(repLegalDoc) &&
+    (repLegalDoc === ordGastoDoc || repLegalDoc === ordPagoDoc)
+  ) {
+    signals.push({
+      id: "pago-a-uno-mismo",
+      category: "concentracion",
+      umbrella: "conflictos_interes",
+      severity: "alta",
+      weight: 22,
+      title: "Representante legal del proveedor coincide con ordenador de la entidad",
+      detail:
+        "El documento de identidad del representante legal del adjudicatario coincide con el del ordenador del gasto o de pago. Conflicto de interés flagrante.",
+    });
+  }
+
+  // Proveedor sin identificación clara (relaciones inusuales)
+  if (
+    isPlaceholder(row.documento_proveedor) ||
+    (row.proveedor_adjudicado &&
+      String(row.proveedor_adjudicado).toLowerCase().includes("sin descripcion"))
+  ) {
+    signals.push({
+      id: "proveedor-sin-identificacion",
+      category: "transparencia",
+      umbrella: "relaciones",
+      severity: "media",
+      weight: 8,
+      title: "Identificación del proveedor incompleta o ausente",
+      detail:
+        "El campo de proveedor o documento del proveedor está vacío o como placeholder. Imposibilita rastrear vínculos, otros contratos y beneficiarios reales.",
+    });
+  }
+
+  // ── 4. Plazos sospechosos (implementación) ───────────────────
   if (fechaFirma && fechaInicio) {
     const d = daysBetween(fechaFirma, fechaInicio);
     if (d < 0) {
       signals.push({
         id: "fecha-incoherente",
         category: "temporal",
+        umbrella: "implementacion",
         severity: "alta",
         weight: 12,
         title: "Fecha de inicio anterior a la firma",
@@ -270,6 +453,7 @@ export function evaluateContract(
       signals.push({
         id: "inicio-inmediato",
         category: "temporal",
+        umbrella: "implementacion",
         severity: "media",
         weight: 6,
         title: "Inicio el mismo día de la firma",
@@ -285,6 +469,7 @@ export function evaluateContract(
       signals.push({
         id: "duracion-negativa",
         category: "temporal",
+        umbrella: "implementacion",
         severity: "alta",
         weight: 14,
         title: "Fecha fin anterior a la fecha de inicio",
@@ -294,6 +479,7 @@ export function evaluateContract(
       signals.push({
         id: "duracion-excesiva",
         category: "temporal",
+        umbrella: "implementacion",
         severity: "media",
         weight: 8,
         title: `Duración del contrato: ${(d / 365).toFixed(1)} años`,
@@ -311,6 +497,7 @@ export function evaluateContract(
     signals.push({
       id: "dias-adicionados",
       category: "temporal",
+      umbrella: "implementacion",
       severity: sev,
       weight,
       title: `${diasAdicionados} días adicionados al plazo original`,
@@ -319,7 +506,7 @@ export function evaluateContract(
     });
   }
 
-  // ── 5. Calidad de datos / transparencia ──────────────────────
+  // ── 5. Calidad de datos / transparencia (relaciones) ─────────
   const camposCriticos: Array<{ key: keyof ContractRow; label: string }> = [
     { key: "objeto_del_contrato", label: "Objeto del contrato" },
     { key: "descripcion_del_proceso", label: "Descripción del proceso" },
@@ -331,6 +518,7 @@ export function evaluateContract(
     signals.push({
       id: "campos-criticos-faltantes",
       category: "transparencia",
+      umbrella: "relaciones",
       severity: faltantes.length >= 2 ? "alta" : "media",
       weight: faltantes.length * 6,
       title: `${faltantes.length} campo(s) crítico(s) sin información`,
@@ -344,6 +532,7 @@ export function evaluateContract(
     signals.push({
       id: "objeto-vago",
       category: "transparencia",
+      umbrella: "licitacion",
       severity: "baja",
       weight: 4,
       title: "Objeto del contrato muy breve",

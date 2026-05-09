@@ -17,6 +17,7 @@ import type { ContractRow, RiskAssessment } from "@/lib/risk-signals";
 const MODEL_CHAIN: string[] = [
   process.env.CEREBRAS_MODEL ?? "qwen-3-235b-a22b-instruct-2507",
   "gpt-oss-120b",
+  "zai-glm-4.7",
   "llama3.1-8b",
 ];
 // Dedup en caso de override igual a uno de los fallbacks
@@ -47,12 +48,57 @@ function cacheKey(row: ContractRow, base: RiskAssessment): string {
   return `${row.id_contrato ?? "na"}::${base.score}`;
 }
 
+/**
+ * Las 5 banderas rojas canónicas para auditoría de contratación pública.
+ * Esquema basado en lineamientos de Transparencia por Colombia, Contraloría
+ * General de la República y OECD anti-corruption framework.
+ */
+export const CATEGORIAS_RIESGO = [
+  "implementacion",
+  "licitacion",
+  "relaciones",
+  "conflictos_interes",
+  "financiero",
+] as const;
+export type CategoriaRiesgo = (typeof CATEGORIAS_RIESGO)[number];
+
+export const CATEGORIA_LABEL: Record<CategoriaRiesgo, { name: string; descripcion: string }> = {
+  implementacion: {
+    name: "Irregularidades en la implementación",
+    descripcion:
+      "Fallas en la ejecución del contrato: plazos sospechosos, otrosíes excesivos, contratos no liquidados, sobre-ejecución.",
+  },
+  licitacion: {
+    name: "Procesos de licitación viciados",
+    descripcion:
+      "Modalidad de selección que recorta competencia, justificación genérica, fraccionamiento, evasión de licitación pública.",
+  },
+  relaciones: {
+    name: "Relaciones inusuales",
+    descripcion:
+      "Concentración del mismo proveedor con la misma entidad, identidades del proveedor incompletas, autosupervisión (mismo gestor y supervisor).",
+  },
+  conflictos_interes: {
+    name: "Conflictos de interés",
+    descripcion:
+      "Coincidencias entre representante legal del proveedor, ordenador del gasto, supervisor o pagador. Pagos a uno mismo o relaciones familiares.",
+  },
+  financiero: {
+    name: "Inconsistencias financieras",
+    descripcion:
+      "Anticipos excesivos o no habilitados, valores anómalos, redondeos sospechosos, amortización incompleta, pago > facturado.",
+  },
+};
+
 export type LlmAuditResult = {
   scoreAjustado: number; // 0..100, mayor = más riesgo
   nivel: "crítico" | "alto" | "medio" | "bajo" | "mínimo";
+  /** Subset de las 5 categorías canónicas que el LLM detectó. */
+  categoriasDetectadas: CategoriaRiesgo[];
   banderasAdicionales: Array<{
     titulo: string;
     severidad: "alta" | "media" | "baja";
+    categoria: CategoriaRiesgo;
     explicacion: string;
   }>;
   justificacion: string; // 2-3 oraciones para un periodista/ciudadano
@@ -62,19 +108,57 @@ export type LlmAuditResult = {
 
 const SYSTEM_PROMPT = `Eres un auditor experto en contratación pública colombiana, capacitado en Ley 80 de 1993, Ley 1150 de 2007 y el Decreto 1082 de 2015. Trabajas para una veeduría ciudadana que analiza datos de SECOP II.
 
-Tu tarea: dado un contrato y una lista de señales de riesgo ya detectadas por reglas heurísticas, agregas tu análisis cualitativo basado en lectura del objeto y descripción del contrato. Detectas:
-- Vaguedad sospechosa en el objeto (objetos genéricos tipo "elaboración de estudios" sin alcance).
-- Lenguaje que delata recortar competencia (especificaciones a la medida).
-- Riesgos de elefante blanco, sobrecostos típicos por sector.
-- Inconsistencias entre el objeto declarado y la modalidad/tipo de contrato elegido.
-- Patrones conocidos por la Contraloría: cesiones, contratos de prestación de servicios para funciones permanentes, fraccionamiento.
+Tu marco de análisis son las 5 banderas rojas canónicas de auditoría de contratación pública:
+
+1. IMPLEMENTACION (irregularidades en la implementación):
+   - Plazos sospechosos (inicio antes de la firma, duración negativa, ejecución >5 años)
+   - Otrosíes / días adicionados excesivos (>90 días)
+   - Contratos terminados sin liquidación
+   - Sobre-ejecución (valor facturado > valor del contrato)
+   - CDP / saldos presupuestales insuficientes
+
+2. LICITACION (procesos de licitación viciados):
+   - Modalidad que recorta competencia (Contratación Directa sin justificación sólida, Régimen especial inapropiado)
+   - Justificación de modalidad genérica o vacía
+   - Valores justo debajo del umbral de licitación (sospecha de elusión)
+   - Fraccionamiento: mismo objeto en múltiples contratos pequeños
+   - Especificaciones técnicas a la medida (objeto que delata un solo oferente posible)
+   - Contratos de prestación de servicios para funciones permanentes (uso indebido para evadir nómina)
+
+3. RELACIONES (relaciones inusuales):
+   - Concentración: mismo proveedor con la misma entidad N veces
+   - Proveedor sin identificación o con datos incompletos (oculta identidad)
+   - Autosupervisión: ordenador del gasto = supervisor (misma persona gestiona y verifica)
+   - Cesiones reiteradas a terceros
+
+4. CONFLICTOS_INTERES:
+   - Representante legal del proveedor = ordenador del gasto = pagador (pago a uno mismo)
+   - Vínculos familiares o societarios entre adjudicatario y entidad
+   - Banco/cuenta del proveedor coincide con histórico cuestionable
+   - Funcionarios públicos contratando con sus propias empresas
+
+5. FINANCIERO (inconsistencias financieras):
+   - Anticipo > 50% (límite legal en obra pública según Decreto 1082)
+   - Anticipo cobrado sin habilitación de pago adelantado
+   - Valor del contrato cero, negativo o atípico (>10x mediana del tipo)
+   - Redondeos sospechosos (todos los valores en millones redondos = no hay cálculo real de costos)
+   - Amortización incompleta: anticipo no se descuenta de pagos
+   - Valor pagado > valor facturado
+
+Tu tarea: dado un contrato + señales heurísticas, lees el objeto/descripción y emites:
+(a) Un score ajustado.
+(b) La lista de cuáles de las 5 banderas rojas detectaste (categoriasDetectadas).
+(c) Banderas adicionales que las heurísticas no capturaron, cada una clasificada en UNA de las 5 categorías.
+(d) Una justificación corta y una recomendación concreta para una veeduría.
 
 Reglas estrictas:
 1. Solo afirmas lo que el texto del contrato y las señales heurísticas sustentan. NO especulas sobre nombres propios.
 2. NO acusas — describes patrones de riesgo y recomiendas acciones de fiscalización.
 3. Hablas en español colombiano, claro, no jurídico-técnico salvo necesidad.
 4. Devuelves SOLO JSON válido en el schema indicado. Sin texto antes o después.
-5. El "scoreAjustado" parte del score base, lo modificas máximo ±20 puntos según tu lectura cualitativa.`;
+5. El "scoreAjustado" parte del score base, lo modificas máximo ±20 puntos según tu lectura cualitativa.
+6. categoriasDetectadas debe ser un subset de: ["implementacion","licitacion","relaciones","conflictos_interes","financiero"]. Solo las que evidencias real, no las posibles.
+7. Cada bandera adicional DEBE tener "categoria" usando esos mismos slugs exactos.`;
 
 export function buildUserPrompt(row: ContractRow, base: RiskAssessment): string {
   const lines: string[] = [];
@@ -114,8 +198,14 @@ export function buildUserPrompt(row: ContractRow, base: RiskAssessment): string 
   lines.push(`{
   "scoreAjustado": <int 0..100, partiendo de ${base.score} con ajuste máximo ±20>,
   "nivel": "crítico" | "alto" | "medio" | "bajo" | "mínimo",
+  "categoriasDetectadas": ["implementacion"|"licitacion"|"relaciones"|"conflictos_interes"|"financiero", ...],
   "banderasAdicionales": [
-    { "titulo": "<corto>", "severidad": "alta" | "media" | "baja", "explicacion": "<1-2 oraciones>" }
+    {
+      "titulo": "<corto>",
+      "severidad": "alta" | "media" | "baja",
+      "categoria": "implementacion" | "licitacion" | "relaciones" | "conflictos_interes" | "financiero",
+      "explicacion": "<1-2 oraciones>"
+    }
   ],
   "justificacion": "<2-3 oraciones explicando el score para un periodista>",
   "recomendacion": "<acción concreta para una veeduría: pedir adendas, revisar pólizas, alertar Contraloría, etc.>",
@@ -143,6 +233,21 @@ function safeParseJson(text: string): LlmAuditResult | null {
   }
 }
 
+function parseCategoria(v: unknown): CategoriaRiesgo | null {
+  const s = String(v ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z_]/g, "");
+  if (s.includes("implement")) return "implementacion";
+  if (s.includes("licit")) return "licitacion";
+  if (s.includes("relacion")) return "relaciones";
+  if (s.includes("conflicto") || s.includes("interes")) return "conflictos_interes";
+  if (s.includes("financ") || s.includes("dinero") || s.includes("presupuesto")) return "financiero";
+  return null;
+}
+
 function normalizeResult(obj: Record<string, unknown>): LlmAuditResult {
   const score = clamp(Number(obj.scoreAjustado ?? 0), 0, 100);
   const nivelRaw = String(obj.nivel ?? "").toLowerCase();
@@ -152,18 +257,33 @@ function normalizeResult(obj: Record<string, unknown>): LlmAuditResult {
     : nivelRaw.includes("medio") ? "medio"
     : nivelRaw.includes("bajo") ? "bajo"
     : "mínimo";
+
+  const categoriasDetectadas: CategoriaRiesgo[] = [];
+  if (Array.isArray(obj.categoriasDetectadas)) {
+    for (const v of obj.categoriasDetectadas) {
+      const c = parseCategoria(v);
+      if (c && !categoriasDetectadas.includes(c)) categoriasDetectadas.push(c);
+    }
+  }
+
   const banderas = Array.isArray(obj.banderasAdicionales)
     ? (obj.banderasAdicionales as Array<Record<string, unknown>>)
-        .map((b) => ({
-          titulo: String(b.titulo ?? "").slice(0, 200),
-          severidad:
-            String(b.severidad ?? "media").toLowerCase() === "alta"
-              ? "alta" as const
-              : String(b.severidad ?? "media").toLowerCase() === "baja"
-                ? "baja" as const
-                : "media" as const,
-          explicacion: String(b.explicacion ?? "").slice(0, 600),
-        }))
+        .map((b) => {
+          const cat = parseCategoria(b.categoria) ?? "implementacion";
+          // Si una bandera tiene categoría pero no está en categoriasDetectadas, agregarla
+          if (!categoriasDetectadas.includes(cat)) categoriasDetectadas.push(cat);
+          return {
+            titulo: String(b.titulo ?? "").slice(0, 200),
+            severidad:
+              String(b.severidad ?? "media").toLowerCase() === "alta"
+                ? ("alta" as const)
+                : String(b.severidad ?? "media").toLowerCase() === "baja"
+                  ? ("baja" as const)
+                  : ("media" as const),
+            categoria: cat,
+            explicacion: String(b.explicacion ?? "").slice(0, 600),
+          };
+        })
         .filter((b) => b.titulo)
         .slice(0, 8)
     : [];
@@ -173,6 +293,7 @@ function normalizeResult(obj: Record<string, unknown>): LlmAuditResult {
   return {
     scoreAjustado: score,
     nivel,
+    categoriasDetectadas,
     banderasAdicionales: banderas,
     justificacion: String(obj.justificacion ?? "").slice(0, 1200),
     recomendacion: String(obj.recomendacion ?? "").slice(0, 800),
@@ -338,6 +459,7 @@ export async function auditWithLlmStream(
           ({
             scoreAjustado: base.score,
             nivel: base.level,
+            categoriasDetectadas: [],
             banderasAdicionales: [],
             justificacion:
               "El modelo no devolvió un JSON parseable. Mostrando solo el análisis heurístico.",
