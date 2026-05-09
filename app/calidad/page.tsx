@@ -183,29 +183,6 @@ async function QualityReport({ sampleSize }: { sampleSize: number }) {
         </div>
       </Card>
 
-      <Card title="Top problemas detectados" subtitle="Los más relevantes para tu formulario">
-        {report.topIssues.length === 0 ? (
-          <p className="text-sm text-[var(--color-muted)]">Sin problemas relevantes.</p>
-        ) : (
-          <ul className="space-y-2">
-            {report.topIssues.map((iss, i) => (
-              <li
-                key={i}
-                className={`flex items-start gap-3 p-3 rounded-lg ring-1 ${SEVERITY_TONE[iss.severity]}`}
-              >
-                <span className="text-[10px] uppercase tracking-wider font-bold mt-0.5 px-1.5 py-0.5 rounded bg-black/30">
-                  {iss.severity}
-                </span>
-                <div className="flex-1">
-                  <div className="font-mono text-xs opacity-80">{iss.field}</div>
-                  <div className="text-sm mt-0.5">{iss.issue}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
       <Card>
         <details className="text-sm">
           <summary className="cursor-pointer font-medium">Metodología</summary>
@@ -240,6 +217,29 @@ async function QualityReport({ sampleSize }: { sampleSize: number }) {
             </p>
           </div>
         </details>
+      </Card>
+
+      <Card title="Top problemas detectados" subtitle="Los más relevantes para tu formulario">
+        {report.topIssues.length === 0 ? (
+          <p className="text-sm text-[var(--color-muted)]">Sin problemas relevantes.</p>
+        ) : (
+          <ul className="space-y-2">
+            {report.topIssues.map((iss, i) => (
+              <li
+                key={i}
+                className={`flex items-start gap-3 p-3 rounded-lg ring-1 ${SEVERITY_TONE[iss.severity]}`}
+              >
+                <span className="text-[10px] uppercase tracking-wider font-bold mt-0.5 px-1.5 py-0.5 rounded bg-black/30">
+                  {iss.severity}
+                </span>
+                <div className="flex-1">
+                  <div className="font-mono text-xs opacity-80">{iss.field}</div>
+                  <div className="text-sm mt-0.5">{iss.issue}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );
