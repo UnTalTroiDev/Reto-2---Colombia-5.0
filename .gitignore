@@ -14,3 +14,4 @@ dist
 
 # Temp analysis output (regenerated via `node analisis.mjs`)
 analisis-resultado.json
+tsconfig.tsbuildinfo
