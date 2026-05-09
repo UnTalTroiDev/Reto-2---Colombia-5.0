@@ -153,12 +153,16 @@ export default async function AuditoriaPage({ params }: { params: Params }) {
 
 function KV({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="bg-[var(--color-surface)] p-3">
-      <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-[var(--color-muted)]">
+    <div className="bg-[var(--color-surface)] px-4 py-4">
+      <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[var(--color-muted)]">
         {label}
       </div>
       <div
-        className={`text-[13px] mt-1.5 truncate ${mono ? "font-mono tabular-nums" : "serif"}`}
+        className={`mt-2 truncate ${
+          mono
+            ? "font-mono tabular-nums text-[17px] font-medium text-[var(--color-fg)]"
+            : "serif text-[18px] leading-tight text-[var(--color-fg)]"
+        }`}
         title={value}
       >
         {value}
