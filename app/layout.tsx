@@ -65,14 +65,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="border-b border-[var(--color-border)] bg-[var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-30 relative">
             <div className="max-w-[1400px] mx-auto px-6 pt-6 pb-4">
               <div className="flex items-baseline gap-6 flex-wrap">
-                <Link href="/" className="flex items-baseline gap-3 group">
+                <Link href="/" className="flex items-baseline gap-4 group">
                   <span
-                    className="serif text-2xl font-semibold leading-none"
+                    className="serif text-[34px] font-semibold leading-none"
                     aria-hidden
                   >
                     SECOP<span className="text-[var(--color-accent)]">.</span>
                   </span>
-                  <span className="kicker">Datos abiertos · Colombia</span>
+                  <span className="kicker text-[14px]!">Datos abiertos · Colombia</span>
                 </Link>
                 <div className="ml-auto flex items-center gap-4">
                   <span className="kicker hidden md:block">
@@ -108,19 +108,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {NAV.map((item, i) => (
                   <span key={item.href} className="flex items-center">
                     {i > 0 && i !== 3 && i !== 5 && (
-                      <span className="text-[var(--color-border-strong)] px-1" aria-hidden>
+                      <span
+                        className="text-[var(--color-border-strong)] text-[16px] px-1.5"
+                        aria-hidden
+                      >
                         ·
                       </span>
                     )}
                     {(i === 3 || i === 5) && (
                       <span
-                        className="mx-3 h-3 w-px bg-[var(--color-border-strong)]"
+                        className="mx-3 h-4 w-px bg-[var(--color-border-strong)]"
                         aria-hidden
                       />
                     )}
                     <Link
                       href={item.href}
-                      className="px-2 py-1 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-accent)] transition-colors whitespace-nowrap"
+                      className="px-2.5 py-1.5 text-[15px] text-[var(--color-fg-2)] hover:text-[var(--color-accent)] transition-colors whitespace-nowrap"
                     >
                       {item.label}
                     </Link>
