@@ -522,15 +522,38 @@ function ScoreSeal({
 }
 
 function SeverityType({ severity }: { severity: "alta" | "media" | "baja" }) {
-  const cls =
-    severity === "alta"
-      ? "text-[var(--color-danger)] decoration-[var(--color-danger)]"
-      : severity === "media"
-        ? "text-[var(--color-warn)] decoration-[var(--color-warn)]"
-        : "text-[var(--color-muted)] decoration-[var(--color-muted-2)]";
+  if (severity === "alta") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-danger)] text-white font-mono text-[10px] uppercase tracking-[0.22em] font-bold border border-[var(--color-danger)] whitespace-nowrap"
+        role="img"
+        aria-label="Severidad alta"
+      >
+        <span aria-hidden className="text-[9px] leading-none">●●●</span>
+        <span>Alta</span>
+      </span>
+    );
+  }
+  if (severity === "media") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-warn)] text-[var(--color-bg)] font-mono text-[10px] uppercase tracking-[0.22em] font-bold border border-[var(--color-warn)] whitespace-nowrap"
+        role="img"
+        aria-label="Severidad media"
+      >
+        <span aria-hidden className="text-[9px] leading-none">●●○</span>
+        <span>Media</span>
+      </span>
+    );
+  }
   return (
-    <span className={`serif italic text-[12px] underline decoration-2 underline-offset-4 ${cls}`}>
-      {severity}
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-transparent text-[var(--color-fg-2)] font-mono text-[10px] uppercase tracking-[0.22em] font-bold border border-[var(--color-muted-2)] whitespace-nowrap"
+      role="img"
+      aria-label="Severidad baja"
+    >
+      <span aria-hidden className="text-[9px] leading-none">●○○</span>
+      <span>Baja</span>
     </span>
   );
 }
