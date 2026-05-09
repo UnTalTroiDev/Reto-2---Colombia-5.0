@@ -79,7 +79,24 @@ type LlmResult = {
   citasObjeto: string[];
 };
 
-export function AuditorClient({ id, today }: { id: string; today: string }) {
+type Contexto = {
+  entidad: string;
+  proveedor: string;
+  departamento: string;
+  modalidad: string;
+  valor: number;
+  urlSecop: string | null;
+};
+
+export function AuditorClient({
+  id,
+  today,
+  contexto,
+}: {
+  id: string;
+  today: string;
+  contexto: Contexto;
+}) {
   const [heuristic, setHeuristic] = useState<Heuristica | null>(null);
   const [streamText, setStreamText] = useState("");
   const [llm, setLlm] = useState<LlmResult | null>(null);
@@ -336,6 +353,8 @@ export function AuditorClient({ id, today }: { id: string; today: string }) {
                   {llm.recomendacion}
                 </p>
               </div>
+
+              <CitizenActions id={id} contexto={contexto} llm={llm} />
             </>
           ) : status === "error" ? (
             <ErrorPanel message={error ?? ""} />
@@ -540,6 +559,137 @@ function ErrorPanel({ message }: { message: string }) {
         configura <span className="text-[var(--color-accent)]">CEREBRAS_API_KEY</span> en las
         variables de entorno de Vercel.
       </p>
+    </div>
+  );
+}
+
+function CitizenActions({
+  id,
+  contexto,
+  llm,
+}: {
+  id: string;
+  contexto: Contexto;
+  llm: LlmResult;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const valorCop = new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(contexto.valor);
+
+  const banderasLista = llm.categoriasDetectadas
+    .map((c) => CATEGORIAS_INFO.find((x) => x.key === c)?.full ?? c)
+    .join(" · ");
+
+  const auditorUrl =
+    typeof window !== "undefined" ? window.location.href : `https://gobia.local/auditor/${id}`;
+
+  const resumen = [
+    `[GobIA Auditor — Score ${llm.scoreAjustado}/100 · ${llm.nivel.toUpperCase()}]`,
+    `Expediente: ${id}`,
+    `Entidad: ${contexto.entidad}`,
+    `Proveedor: ${contexto.proveedor}`,
+    `Departamento: ${contexto.departamento} · Modalidad: ${contexto.modalidad}`,
+    `Valor: ${valorCop}`,
+    banderasLista ? `Banderas detectadas: ${banderasLista}` : "",
+    "",
+    `Justificación: ${llm.justificacion}`,
+    "",
+    `Recomendación: ${llm.recomendacion}`,
+    "",
+    `Dossier completo: ${auditorUrl}`,
+    contexto.urlSecop ? `Expediente SECOP II: ${contexto.urlSecop}` : "",
+    "",
+    "— Generado por GobIA Auditor (LLM open-source · Hackathon Colombia 5.0). Insumo para veeduría ciudadana, no constituye acusación.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(resumen);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    } catch {
+      /* clipboard bloqueado: fallback no-op */
+    }
+  }
+
+  const asuntoEmail = `Posible alerta SECOP II · Score ${llm.scoreAjustado}/100 · ${id}`;
+  const cuerpoEmail = encodeURIComponent(resumen);
+  const mailto = `mailto:anticorrupcion@contraloria.gov.co?subject=${encodeURIComponent(asuntoEmail)}&body=${cuerpoEmail}`;
+
+  const tweetText = encodeURIComponent(
+    `Auditoría AI sobre SECOP II → ${contexto.entidad} adjudicó ${valorCop} a ${contexto.proveedor}. Score de riesgo: ${llm.scoreAjustado}/100 (${llm.nivel}). Vía @GobIA_Auditor`,
+  );
+  const tweetUrl = encodeURIComponent(auditorUrl);
+  const twitter = `https://twitter.com/intent/tweet?text=${tweetText}&url=${tweetUrl}`;
+
+  return (
+    <div className="mt-6 border-t border-[var(--color-border)] pt-5">
+      <div className="kicker mb-3 flex items-center gap-2">
+        <span className="font-mono text-[var(--color-accent-2)]">⚑</span> Acción ciudadana
+      </div>
+      <p className="text-[12px] text-[var(--color-fg-2)] leading-relaxed mb-4 max-w-xl">
+        Este dossier es ciudadano y reproducible. Difúndalo, escálelo a control fiscal o
+        guárdelo para seguimiento. Todos los enlaces incluyen el resumen ejecutivo y citan la
+        fuente original.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label="Copiar resumen ejecutivo del expediente al portapapeles"
+          className="px-3 py-2.5 border border-[var(--color-border-strong)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition text-left group"
+        >
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-accent)] mb-1">
+            01 · Copiar
+          </div>
+          <div className="text-[13px] text-[var(--color-fg)] font-medium leading-tight">
+            {copied ? "✓ Resumen copiado" : "Resumen al portapapeles"}
+          </div>
+          <div className="text-[10px] text-[var(--color-muted)] mt-1 leading-snug">
+            Markdown listo para WhatsApp, Slack o Notion.
+          </div>
+        </button>
+
+        <a
+          href={mailto}
+          aria-label="Enviar denuncia por email a la Contraloría General de la República"
+          className="px-3 py-2.5 border border-[var(--color-border-strong)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition text-left group"
+        >
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-accent)] mb-1">
+            02 · Email
+          </div>
+          <div className="text-[13px] text-[var(--color-fg)] font-medium leading-tight">
+            Enviar a Contraloría →
+          </div>
+          <div className="text-[10px] text-[var(--color-muted)] mt-1 leading-snug">
+            anticorrupcion@contraloria.gov.co
+          </div>
+        </a>
+
+        <a
+          href={twitter}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Compartir el hallazgo en X / Twitter"
+          className="px-3 py-2.5 border border-[var(--color-border-strong)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition text-left group"
+        >
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-accent)] mb-1">
+            03 · Difundir
+          </div>
+          <div className="text-[13px] text-[var(--color-fg)] font-medium leading-tight">
+            Compartir en X / Twitter ↗
+          </div>
+          <div className="text-[10px] text-[var(--color-muted)] mt-1 leading-snug">
+            Texto pre-redactado con score y entidad.
+          </div>
+        </a>
+      </div>
     </div>
   );
 }

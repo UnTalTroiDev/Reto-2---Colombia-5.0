@@ -117,7 +117,21 @@ export default async function AuditoriaPage({ params }: { params: Params }) {
         </blockquote>
       </section>
 
-      <AuditorClient id={id} today={today} />
+      <AuditorClient
+        id={id}
+        today={today}
+        contexto={{
+          entidad: contrato.nombre_entidad ?? "(entidad no reportada)",
+          proveedor: contrato.proveedor_adjudicado ?? "(sin proveedor)",
+          departamento: contrato.departamento ?? "—",
+          modalidad: contrato.modalidad_de_contratacion ?? "—",
+          valor:
+            typeof contrato.valor_del_contrato === "number"
+              ? contrato.valor_del_contrato
+              : Number(contrato.valor_del_contrato ?? 0),
+          urlSecop: typeof url === "string" ? url : null,
+        }}
+      />
 
       <footer className="text-[11px] font-mono text-[var(--color-muted)] border-t border-[var(--color-border)] pt-4 leading-relaxed">
         <span className="uppercase tracking-[0.2em]">Fuente</span> ·{" "}
