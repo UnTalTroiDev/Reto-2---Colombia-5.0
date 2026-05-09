@@ -3,6 +3,7 @@ import { evaluateContract, type ContractRow } from "@/lib/risk-signals";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
@@ -18,7 +19,10 @@ type SP = {
   sector?: string;
   modalidad?: string;
   valor_min?: string;
+  q?: string;
 };
+
+const ID_PATTERN = /^CO\d+\.PCCNTR\.\d+$/i;
 
 function escapeSoql(s: string): string {
   return s.replace(/'/g, "''");
@@ -30,6 +34,13 @@ export default async function AuditorPage({
   searchParams: Promise<SP>;
 }) {
   const sp = await searchParams;
+
+  // Si la búsqueda es un ID de contrato exacto, redirige directo a la auditoría
+  const qTrimmed = (sp.q ?? "").trim();
+  if (qTrimmed && ID_PATTERN.test(qTrimmed)) {
+    redirect(`/auditor/${encodeURIComponent(qTrimmed)}`);
+  }
+
   const key = JSON.stringify(sp);
 
   return (
@@ -111,10 +122,38 @@ async function FilterForm({ sp }: { sp: SP }) {
         <span className="text-[var(--color-muted-2)]">Departamento / Sector / Modalidad / Valor mínimo</span>
       </div>
       <form
-        className="grid grid-cols-1 md:grid-cols-5 gap-3 border-t border-b-[3px] border-[var(--color-border-strong)] py-4"
+        className="space-y-3 border-t border-b-[3px] border-[var(--color-border-strong)] py-4"
         role="search"
-        aria-label="Filtros del leaderboard de riesgo"
+        aria-label="Búsqueda y filtros del leaderboard de riesgo"
       >
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
+            Buscar por ID de contrato o nombre de entidad/proveedor
+          </span>
+          <div className="flex gap-2">
+            <input
+              type="search"
+              name="q"
+              defaultValue={sp.q ?? ""}
+              placeholder="CO1.PCCNTR.XXXXX  ·  ó  ·  GOBERNACION DE NARIÑO  ·  ó  ·  cualquier proveedor…"
+              className="flex-1 px-3 py-2.5 bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[14px] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-[var(--color-accent)] text-[var(--color-bg)] text-sm font-semibold hover:bg-[var(--color-accent-soft)] transition tracking-tight"
+            >
+              Auditar
+            </button>
+          </div>
+          <span className="text-[11px] text-[var(--color-muted)] mt-1 leading-snug">
+            Si pegas un ID exacto (formato{" "}
+            <span className="font-mono text-[10px] text-[var(--color-fg-2)]">CO1.PCCNTR.XXXXX</span>),
+            te llevamos directo a la auditoría AI individual. Si no, filtramos el leaderboard.
+          </span>
+        </label>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--color-muted)]">
             Departamento
@@ -192,7 +231,7 @@ async function FilterForm({ sp }: { sp: SP }) {
             type="submit"
             className="flex-1 px-4 py-2 bg-[var(--color-accent)] text-[var(--color-bg)] text-sm font-semibold hover:bg-[var(--color-accent-soft)] transition tracking-tight"
           >
-            Auditar
+            Aplicar
           </button>
           <Link
             href="/auditor"
@@ -200,6 +239,7 @@ async function FilterForm({ sp }: { sp: SP }) {
           >
             Limpiar
           </Link>
+        </div>
         </div>
       </form>
     </section>
@@ -214,15 +254,24 @@ function FilterSkeleton() {
 
 async function Leaderboard({ sp }: { sp: SP }) {
   const valorMin = Number(sp.valor_min ?? 100_000_000);
+  const q = (sp.q ?? "").trim();
   const parts: string[] = [];
-  parts.push(`valor_del_contrato > ${Number.isFinite(valorMin) ? valorMin : 100_000_000}`);
+  // Si hay búsqueda libre, relajamos el valor mínimo a 0 para no perder coincidencias
+  parts.push(`valor_del_contrato > ${q ? 0 : Number.isFinite(valorMin) ? valorMin : 100_000_000}`);
   if (sp.departamento) parts.push(`departamento = '${escapeSoql(sp.departamento)}'`);
   if (sp.sector) parts.push(`sector = '${escapeSoql(sp.sector)}'`);
   if (sp.modalidad) {
     parts.push(`upper(modalidad_de_contratacion) like upper('%${escapeSoql(sp.modalidad)}%')`);
-  } else {
+  } else if (!q) {
+    // Sin búsqueda libre, priorizamos modalidades sensibles
     parts.push(
       `(upper(modalidad_de_contratacion) like upper('%directa%') OR upper(modalidad_de_contratacion) like upper('%régimen especial%') OR upper(modalidad_de_contratacion) like upper('%minima cuantia%') OR upper(modalidad_de_contratacion) like upper('%mínima cuantía%'))`,
+    );
+  }
+  if (q) {
+    const e = escapeSoql(q);
+    parts.push(
+      `(upper(nombre_entidad) like upper('%${e}%') OR upper(proveedor_adjudicado) like upper('%${e}%') OR upper(id_contrato) like upper('%${e}%') OR upper(descripcion_del_proceso) like upper('%${e}%'))`,
     );
   }
 

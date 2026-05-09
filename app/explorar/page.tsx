@@ -197,13 +197,14 @@ async function Results({ sp }: { sp: SP }) {
                 <th className="text-left py-3 px-2 font-medium">Estado</th>
                 <th className="text-left py-3 px-2 font-medium">Tipo</th>
                 <th className="text-right py-3 px-2 font-medium">Valor</th>
-                <th className="text-left py-3 px-5 font-medium">Firma</th>
+                <th className="text-left py-3 px-2 font-medium">Firma</th>
+                <th className="text-right py-3 px-5 font-medium">Auditar</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[var(--color-muted)]">
+                  <td colSpan={9} className="py-12 text-center text-[var(--color-muted)]">
                     Sin resultados con esos filtros.
                   </td>
                 </tr>
@@ -240,8 +241,18 @@ async function Results({ sp }: { sp: SP }) {
                     <td className="py-2.5 px-2 text-right tabular-nums font-medium">
                       {formatCurrency(r.valor_del_contrato)}
                     </td>
-                    <td className="py-2.5 px-5 text-xs text-[var(--color-muted)] tabular-nums">
+                    <td className="py-2.5 px-2 text-xs text-[var(--color-muted)] tabular-nums">
                       {r.fecha_de_firma ? r.fecha_de_firma.slice(0, 10) : "—"}
+                    </td>
+                    <td className="py-2.5 px-5 text-right">
+                      {r.id_contrato && (
+                        <Link
+                          href={`/auditor/${encodeURIComponent(r.id_contrato)}`}
+                          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-accent)] hover:text-[var(--color-fg)] transition whitespace-nowrap border-b border-transparent hover:border-[var(--color-accent)] pb-0.5"
+                        >
+                          Auditar ↗
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 );
