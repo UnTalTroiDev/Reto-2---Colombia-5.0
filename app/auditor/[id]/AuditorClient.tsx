@@ -168,8 +168,15 @@ export function AuditorClient({
     <div className="space-y-6 rise rise-4">
       {/* ── 5 ALERTAS DE BANDERAS ROJAS ─────────────────────────── */}
       <section>
-        <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
-          <div className="kicker">5 banderas rojas · marco canónico de auditoría</div>
+        <div className="flex items-end justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <h2 className="serif text-[28px] md:text-[34px] font-semibold tracking-tight leading-none text-[var(--color-accent)]">
+              5 banderas rojas
+            </h2>
+            <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-[var(--color-muted)] mt-2">
+              Marco canónico de auditoría
+            </div>
+          </div>
           <div className="flex gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
             <span className="flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-[var(--color-warn)]" /> Heurística
