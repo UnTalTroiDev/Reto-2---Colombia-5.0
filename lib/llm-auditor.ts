@@ -9,7 +9,18 @@
 import Cerebras from "@cerebras/cerebras_cloud_sdk";
 import type { ContractRow, RiskAssessment } from "@/lib/risk-signals";
 
-const MODEL = process.env.CEREBRAS_MODEL ?? "qwen-3-235b-a22b-instruct-2507";
+/**
+ * Cadena de modelos OSS en Cerebras, ordenada por calidad.
+ * Si el primero responde 429 (rate limit), pasamos al siguiente.
+ * Las rate limits en Cerebras son por modelo, así que el fallback funciona.
+ */
+const MODEL_CHAIN: string[] = [
+  process.env.CEREBRAS_MODEL ?? "qwen-3-235b-a22b-instruct-2507",
+  "gpt-oss-120b",
+  "llama3.1-8b",
+];
+// Dedup en caso de override igual a uno de los fallbacks
+const MODELS = Array.from(new Set(MODEL_CHAIN));
 
 let _client: Cerebras | null = null;
 function getClient(): Cerebras {
@@ -22,6 +33,18 @@ function getClient(): Cerebras {
   }
   _client = new Cerebras({ apiKey });
   return _client;
+}
+
+/**
+ * Cache en memoria por id_contrato. Sobrevive a invocaciones tibias (Fluid Compute)
+ * pero no entre cold starts. Suficiente para una demo en hackathon.
+ */
+type CacheEntry = { result: LlmAuditResult; modelUsed: string; expires: number };
+const auditCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
+
+function cacheKey(row: ContractRow, base: RiskAssessment): string {
+  return `${row.id_contrato ?? "na"}::${base.score}`;
 }
 
 export type LlmAuditResult = {
@@ -162,13 +185,19 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
-export async function auditWithLlm(
+function isRateLimit(e: unknown): boolean {
+  const msg = String(e instanceof Error ? e.message : e);
+  return /429|rate.?limit|high.?traffic/i.test(msg);
+}
+
+async function runOnce(
+  client: Cerebras,
+  model: string,
   row: ContractRow,
   base: RiskAssessment,
 ): Promise<LlmAuditResult> {
-  const client = getClient();
   const completion = await client.chat.completions.create({
-    model: MODEL,
+    model,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildUserPrompt(row, base) },
@@ -181,42 +210,120 @@ export async function auditWithLlm(
   const choice = (completion as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0];
   const content = choice?.message?.content ?? "";
   const parsed = safeParseJson(content);
-  if (!parsed) {
-    throw new Error(`LLM devolvió JSON inválido: ${content.slice(0, 200)}`);
-  }
+  if (!parsed) throw new Error(`LLM (${model}) devolvió JSON inválido`);
   return parsed;
 }
 
+export async function auditWithLlm(
+  row: ContractRow,
+  base: RiskAssessment,
+): Promise<LlmAuditResult> {
+  const key = cacheKey(row, base);
+  const cached = auditCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.result;
+
+  const client = getClient();
+  let lastError: unknown = new Error("Sin modelos disponibles");
+  for (const model of MODELS) {
+    try {
+      const result = await runOnce(client, model, row, base);
+      auditCache.set(key, { result, modelUsed: model, expires: Date.now() + CACHE_TTL_MS });
+      return result;
+    } catch (e) {
+      lastError = e;
+      // Solo intentamos siguiente modelo si es rate limit; otros errores se propagan.
+      if (!isRateLimit(e)) throw e;
+    }
+  }
+  throw lastError;
+}
+
 /**
- * Variante streaming: emite chunks de SSE para que la UI muestre el análisis
- * a medida que el modelo lo genera. El chunk final contiene el JSON estructurado.
+ * Variante streaming con fallback automático entre modelos OSS de Cerebras.
+ * Si recibimos cache hit, replay instantáneo como evento `done`.
+ * Si el primer modelo falla con 429, probamos el siguiente.
+ * Una vez iniciado el stream sin error, los chunks se emiten al cliente.
  */
 export async function auditWithLlmStream(
   row: ContractRow,
   base: RiskAssessment,
 ): Promise<ReadableStream<Uint8Array>> {
-  const client = getClient();
-  const stream = await client.chat.completions.create({
-    model: MODEL,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(row, base) },
-    ],
-    temperature: 0.1,
-    max_completion_tokens: 1200,
-    top_p: 1,
-    stream: true,
-  });
-
   const encoder = new TextEncoder();
+  const key = cacheKey(row, base);
+  const cached = auditCache.get(key);
+
+  // Cache hit → replay instantáneo
+  if (cached && cached.expires > Date.now()) {
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        const fullJson = JSON.stringify(cached.result, null, 2);
+        // Emite en chunks para que la UI muestre la animación de streaming
+        const chunkSize = 24;
+        for (let i = 0; i < fullJson.length; i += chunkSize) {
+          const chunk = fullJson.slice(i, i + chunkSize);
+          controller.enqueue(
+            encoder.encode(`event: delta\ndata: ${JSON.stringify({ text: chunk })}\n\n`),
+          );
+        }
+        controller.enqueue(
+          encoder.encode(`event: done\ndata: ${JSON.stringify(cached.result)}\n\n`),
+        );
+        controller.close();
+      },
+    });
+  }
+
+  const client = getClient();
+
+  // Intenta abrir el stream con la cadena de modelos hasta que uno responda.
+  type ChatStream = AsyncIterable<{ choices?: Array<{ delta?: { content?: string } }> }>;
+  let stream: ChatStream | null = null;
+  let modelUsed = "";
+  let lastError: unknown = null;
+
+  for (const model of MODELS) {
+    try {
+      stream = (await client.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserPrompt(row, base) },
+        ],
+        temperature: 0.1,
+        max_completion_tokens: 1200,
+        top_p: 1,
+        stream: true,
+      })) as unknown as ChatStream;
+      modelUsed = model;
+      break;
+    } catch (e) {
+      lastError = e;
+      if (!isRateLimit(e)) break; // si no es 429, no tiene sentido reintentar
+    }
+  }
+
+  if (!stream) {
+    const msg = String(lastError instanceof Error ? lastError.message : lastError ?? "sin modelos");
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            `event: error\ndata: ${JSON.stringify({ message: `Todos los modelos rate-limited: ${msg}` })}\n\n`,
+          ),
+        );
+        controller.close();
+      },
+    });
+  }
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       let buffer = "";
       try {
-        for await (const event of stream as AsyncIterable<{
-          choices?: Array<{ delta?: { content?: string } }>;
-        }>) {
+        controller.enqueue(
+          encoder.encode(`event: model\ndata: ${JSON.stringify({ model: modelUsed })}\n\n`),
+        );
+        for await (const event of stream as ChatStream) {
           const delta = event.choices?.[0]?.delta?.content ?? "";
           if (delta) {
             buffer += delta;
@@ -226,16 +333,25 @@ export async function auditWithLlmStream(
           }
         }
         const parsed = safeParseJson(buffer);
-        const final = parsed ?? {
-          scoreAjustado: base.score,
-          nivel: base.level,
-          banderasAdicionales: [],
-          justificacion:
-            "El modelo no devolvió un JSON parseable. Mostrando solo el análisis heurístico.",
-          recomendacion:
-            "Revisar manualmente el objeto del contrato; las señales determinísticas siguen vigentes.",
-          citasObjeto: [],
-        };
+        const final =
+          parsed ??
+          ({
+            scoreAjustado: base.score,
+            nivel: base.level,
+            banderasAdicionales: [],
+            justificacion:
+              "El modelo no devolvió un JSON parseable. Mostrando solo el análisis heurístico.",
+            recomendacion:
+              "Revisar manualmente el objeto del contrato; las señales determinísticas siguen vigentes.",
+            citasObjeto: [],
+          } satisfies LlmAuditResult);
+        if (parsed) {
+          auditCache.set(key, {
+            result: parsed,
+            modelUsed,
+            expires: Date.now() + CACHE_TTL_MS,
+          });
+        }
         controller.enqueue(
           encoder.encode(`event: done\ndata: ${JSON.stringify(final)}\n\n`),
         );
