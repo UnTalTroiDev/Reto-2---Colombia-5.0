@@ -44,6 +44,7 @@ export const metadata: Metadata = {
 const NAV: Array<{ href: string; label: string; group?: string }> = [
   { href: "/", label: "Inicio", group: "auditor" },
   { href: "/auditor", label: "GobIA Auditor", group: "auditor" },
+  { href: "/metodologia", label: "Metodología", group: "auditor" },
   { href: "/calidad", label: "Contratos · Calidad", group: "contratos" },
   { href: "/explorar", label: "Contratos · Explorar", group: "contratos" },
   { href: "/documentos", label: "Documentos · Resumen", group: "documentos" },
@@ -106,12 +107,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               >
                 {NAV.map((item, i) => (
                   <span key={item.href} className="flex items-center">
-                    {i > 0 && i !== 2 && i !== 4 && (
+                    {i > 0 && i !== 3 && i !== 5 && (
                       <span className="text-[var(--color-border-strong)] px-1" aria-hidden>
                         ·
                       </span>
                     )}
-                    {(i === 2 || i === 4) && (
+                    {(i === 3 || i === 5) && (
                       <span
                         className="mx-3 h-3 w-px bg-[var(--color-border-strong)]"
                         aria-hidden
