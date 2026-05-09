@@ -170,7 +170,7 @@ export function AuditorClient({
       <section>
         <div className="flex items-end justify-between gap-3 mb-4 flex-wrap">
           <div>
-            <h2 className="serif text-[28px] md:text-[34px] font-semibold tracking-tight leading-none text-[var(--color-danger)]">
+            <h2 className="serif text-[28px] md:text-[34px] font-semibold tracking-tight leading-none text-[#ff2e2e] [text-shadow:0_0_18px_rgba(255,46,46,0.35)]">
               5 banderas rojas
             </h2>
             <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-[var(--color-muted)] mt-2">
