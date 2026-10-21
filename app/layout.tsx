@@ -65,15 +65,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="border-b border-[var(--color-border)] bg-[var(--color-bg)]/85 backdrop-blur-md sticky top-0 z-30 relative">
             <div className="max-w-[1400px] mx-auto px-6 pt-6 pb-4">
               <div className="flex items-baseline gap-6 flex-wrap">
-                <Link href="/" className="flex items-baseline gap-4 group">
-                  <span
-                    className="serif text-[34px] font-semibold leading-none"
-                    aria-hidden
-                  >
-                    SECOP<span className="text-[var(--color-accent)]">.</span>
+                <div className="flex items-baseline gap-x-2 gap-y-1 flex-wrap">
+                  <Link href="/" className="flex items-baseline gap-4 group">
+                    <span
+                      className="serif text-[34px] font-semibold leading-none"
+                      aria-hidden
+                    >
+                      SECOP<span className="text-[var(--color-accent)]">.</span>
+                    </span>
+                    <span className="kicker text-[14px]!">Datos abiertos · Colombia</span>
+                  </Link>
+                  <span className="kicker text-[14px]!">
+                    <span className="hidden sm:inline">· </span>El hacker Troi
                   </span>
-                  <span className="kicker text-[14px]!">Datos abiertos · Colombia</span>
-                </Link>
+                </div>
                 <div className="ml-auto flex items-center gap-4">
                   <span className="kicker hidden md:block">
                     Edición {new Date().toISOString().slice(0, 10)}
